@@ -174,38 +174,27 @@ services:
       network-app:
         ipv4_address: 10.0.66.19
 
-  # --- НОВЫЙ СЕРВИС: БИЗНЕС-ПАНЕЛЬ VPN ---
+  # --- НАША БИЗНЕС-ПАНЕЛЬ VPN ---
   vpn-panel:
     build:
-      context: .
+      context: ./vpn-panel # Сборка из подпапки, куда склонирован Git-репозиторий
       dockerfile: Dockerfile
     container_name: scalebox_vpn_panel
     restart: always
     depends_on:
       - postgres
-    # Внутренний порт Next.js - 3000. Пробрасываем на хост как 3002 (так как 3001 занят Grafana)
     ports:
-      - "3002:3000"
+      - "3002:3000" # Доступ на хосте через порт 3002
     environment:
-      # Подключение к вашей существующей БД Postgres
-      # РЕКОМЕНДУЕТСЯ: создать отдельную БД 'vpn_panel_db' в вашем Postgres.
-      # Но если лень, можно указать существующую 'n8n' (наши таблицы не пересекутся с n8n):
-      # - DATABASE_URL=postgresql://n8n_user:P0stgr3s!Pass456@postgres:5432/n8n?schema=public
+      # Автоматическое создание изолированной базы vpn_panel_db в существующем Postgres
       - DATABASE_URL=postgresql://n8n_user:P0stgr3s!Pass456@postgres:5432/vpn_panel_db?schema=public
-      
-      # Случайный длинный секретный ключ для JWT-подписей (измените при желании)
       - JWT_SECRET=BTW_Super_Secret_JWT_Scalebox_123!_Change_Me_In_Prod
-      
-      # Публичный адрес панели (замените на ваш домен подписки, например, vpn.scalebox.ai)
       - NEXTAUTH_URL=https://vpn.scalebox.ai
-      
-      # Фоновая синхронизация (каждые 15 минут)
       - SYNC_INTERVAL_MINUTES=15
     volumes:
       - ./vpn_backups:/app/backups
     networks:
       network-app:
-        # Идеально ложится следующим свободным адресом в вашей сети!
         ipv4_address: 10.0.66.20
 
 networks:
