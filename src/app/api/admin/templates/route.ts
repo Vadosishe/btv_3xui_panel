@@ -60,7 +60,7 @@ export async function POST(req: Request) {
         inboundIdsJson: JSON.stringify(inboundIds),
         trafficLimitGB: Number(trafficLimitGB) || 0,
         limitIp: Number(limitIp) || 0,
-        durationDays: Number(durationDays) || 30,
+        durationDays: durationDays !== undefined && durationDays !== null ? Number(durationDays) : 30,
         flow: flow?.trim() || "",
       },
     });

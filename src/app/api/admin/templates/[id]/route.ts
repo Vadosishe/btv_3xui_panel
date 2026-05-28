@@ -72,7 +72,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         inboundIdsJson: JSON.stringify(inboundIds),
         trafficLimitGB: Number(trafficLimitGB) || 0,
         limitIp: Number(limitIp) || 0,
-        durationDays: Number(durationDays) || 30,
+        durationDays: durationDays !== undefined && durationDays !== null ? Number(durationDays) : 30,
         flow: flow?.trim() || "",
       },
     });

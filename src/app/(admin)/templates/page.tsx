@@ -584,7 +584,7 @@ export default function TemplatesPage() {
                   </div>
                   <div className="limit-box">
                     <div className="limit-icon"><Clock size={14} /></div>
-                    <div className="limit-val">{tpl.durationDays} дн.</div>
+                    <div className="limit-val">{tpl.durationDays > 0 ? `${tpl.durationDays} дн.` : 'Безлимит'}</div>
                     <div className="limit-lbl">Период</div>
                   </div>
                 </div>
@@ -691,8 +691,8 @@ export default function TemplatesPage() {
                   <input
                     type="number"
                     className="form-input"
-                    min="1"
-                    placeholder="30"
+                    min="0"
+                    placeholder="0 - безлимит"
                     value={durationDays}
                     onChange={(e) => setDurationDays(Number(e.target.value))}
                     required
