@@ -7,6 +7,7 @@ export async function GET(
   req: Request,
   { params }: { params: Promise<{ token: string }> }
 ) {
+  const startTime = Date.now();
   try {
     const { token } = await params;
     const { searchParams } = new URL(req.url);
@@ -15,6 +16,7 @@ export async function GET(
     const isBrowser = acceptHeader.includes('text/html') && !format;
 
     // 1. Ищем клиента по токену подписки
+    const t0 = Date.now();
     const client = await prisma.client.findUnique({
       where: { subscriptionToken: token },
       include: {
@@ -22,10 +24,16 @@ export async function GET(
         template: true,
       },
     });
+    const t1 = Date.now();
+    console.log(`[SUB API BENCHMARK] Fetch client by token: ${t1 - t0}ms`);
 
     // 2. Получаем ссылку поддержки и домен из настроек
+    const t2 = Date.now();
     const settings = await prisma.appSetting.findMany();
     const settingsMap = new Map(settings.map(s => [s.key, s.value]));
+    const t3 = Date.now();
+    console.log(`[SUB API BENCHMARK] Fetch settings: ${t3 - t2}ms`);
+
     const supportLink = settingsMap.get('btw_support_link') || 'https://t.me/btw_support_bot';
     const tgBotUsername = settingsMap.get('xui_telegram_bot_username') || '';
 
@@ -100,9 +108,13 @@ export async function GET(
         : 0;
 
       // Динамически получаем доменные имена нод из API 3XUI
+      const t4 = Date.now();
       const nodeDomains = await xuiGetNodeDomains();
+      const t5 = Date.now();
+      console.log(`[SUB API BENCHMARK] Get node domains: ${t5 - t4}ms`);
 
       let configLinks: string[] = [];
+      const t6 = Date.now();
       try {
         const inbounds = await xuiGetInbounds();
         const templateInboundIds: number[] = JSON.parse(client.template.inboundIdsJson || '[]');
@@ -118,14 +130,20 @@ export async function GET(
           }
         }
       } catch (e) {}
+      const t7 = Date.now();
+      console.log(`[SUB API BENCHMARK] Fetch inbounds and gen config links: ${t7 - t6}ms`);
 
       // Отдаем красивую HTML страницу
+      const t8 = Date.now();
       let qrCodeDataUrl = '';
       try {
         const appPanelUrl = settingsMap.get('app_panel_url') || process.env.NEXTAUTH_URL || 'http://localhost:3000';
         const personalSubUrl = `${appPanelUrl}/api/sub/${client.subscriptionToken}`;
         qrCodeDataUrl = await QRCode.toDataURL(personalSubUrl);
       } catch (qrErr) {}
+      const t9 = Date.now();
+      console.log(`[SUB API BENCHMARK] Generate QR code: ${t9 - t8}ms`);
+      console.log(`[SUB API BENCHMARK] TOTAL TIME BROWSER SUB API: ${Date.now() - startTime}ms`);
 
       return new NextResponse(renderSubscriptionPortal(client, usedGBText, limitGBText, progressPercent, configLinks, supportLink, tgBotUsername, qrCodeDataUrl), {
         headers: { 'Content-Type': 'text/html; charset=utf-8' },
@@ -140,8 +158,12 @@ export async function GET(
 
     // Получаем инбаунды и генерируем конфиги
     // Динамически получаем доменные имена нод из API 3XUI
+    const t4 = Date.now();
     const nodeDomains = await xuiGetNodeDomains();
+    const t5 = Date.now();
+    console.log(`[SUB API BENCHMARK] (Client) Get node domains: ${t5 - t4}ms`);
 
+    const t6 = Date.now();
     const inbounds = await xuiGetInbounds();
     const templateInboundIds: number[] = JSON.parse(client.template.inboundIdsJson || '[]');
     let configs: string[] = [];
@@ -156,6 +178,9 @@ export async function GET(
         if (link) configs.push(link);
       }
     }
+    const t7 = Date.now();
+    console.log(`[SUB API BENCHMARK] (Client) Fetch inbounds and gen config links: ${t7 - t6}ms`);
+    console.log(`[SUB API BENCHMARK] TOTAL TIME CLIENT SUB API: ${Date.now() - startTime}ms`);
 
     // Соединяем конфиги переносом строки и кодируем в Base64
     const subscriptionContent = configs.join('\n');
