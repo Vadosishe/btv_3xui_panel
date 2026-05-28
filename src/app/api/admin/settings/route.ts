@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { getSession } from '@/lib/auth';
+import { xuiClearCache } from '@/lib/xui';
 
 // 1. Получить все настройки приложения
 export async function GET() {
@@ -65,6 +66,13 @@ export async function POST(req: Request) {
     });
 
     await prisma.$transaction(operations);
+
+    // Очищаем кэш XUI при обновлении системных настроек
+    try {
+      xuiClearCache();
+    } catch (e) {
+      console.warn('Failed to clear XUI cache during settings update:', e);
+    }
 
     // Логируем аудит
     await prisma.auditLog.create({

@@ -86,13 +86,31 @@ async function xuiRequest<T = any>(
   }
 }
 
+// Кэш для инбаундов 3XUI (для радикального ускорения загрузки страниц подписки)
+let cachedInbounds: any[] | null = null;
+let cachedInboundsTime = 0;
+
 /**
- * Получить список всех инбаундов (входящих подключений)
+ * Получить список всех инбаундов (входящих подключений) с кэшированием на 1 минуту
  */
 export async function xuiGetInbounds(): Promise<any[]> {
-  const data = await xuiRequest('/panel/api/inbounds/list', 'GET');
-  if (data.success && Array.isArray(data.obj)) {
-    return data.obj;
+  const now = Date.now();
+  if (cachedInbounds && (now - cachedInboundsTime < 60000)) {
+    return cachedInbounds;
+  }
+
+  try {
+    const data = await xuiRequest('/panel/api/inbounds/list', 'GET');
+    if (data.success && Array.isArray(data.obj)) {
+      cachedInbounds = data.obj;
+      cachedInboundsTime = now;
+      return data.obj;
+    }
+  } catch (err) {
+    console.error('Error fetching inbounds from 3XUI, using cached fallback if available:', err);
+    if (cachedInbounds) {
+      return cachedInbounds;
+    }
   }
   return [];
 }
@@ -340,10 +358,19 @@ export function generateConfigLink(
   return '';
 }
 
+// Кэш для доменов нод 3XUI
+let cachedNodeDomains: Record<string, string> | null = null;
+let cachedNodeDomainsTime = 0;
+
 /**
- * Получить список всех нод и построить динамический маппинг ID -> Домен
+ * Получить список всех нод и построить динамический маппинг ID -> Домен с кэшированием на 3 минуты
  */
 export async function xuiGetNodeDomains(): Promise<Record<string, string>> {
+  const now = Date.now();
+  if (cachedNodeDomains && (now - cachedNodeDomainsTime < 180000)) {
+    return cachedNodeDomains;
+  }
+
   const nodeDomains: Record<string, string> = {};
   
   // По умолчанию Нода 0 — это сам главный (Master) сервер 3XUI
@@ -363,12 +390,28 @@ export async function xuiGetNodeDomains(): Promise<Record<string, string>> {
           nodeDomains[String(node.id)] = node.address;
         }
       });
+      cachedNodeDomains = nodeDomains;
+      cachedNodeDomainsTime = now;
+      return nodeDomains;
     }
   } catch (err: any) {
-    console.error('Failed to fetch node list from 3XUI:', err.message);
+    console.error('Failed to fetch node list from 3XUI, using cached fallback if available:', err.message);
+    if (cachedNodeDomains) {
+      return cachedNodeDomains;
+    }
   }
 
   return nodeDomains;
+}
+
+/**
+ * Очистить кэш инбаундов и нод (например, при сохранении настроек или изменении шаблонов)
+ */
+export function xuiClearCache(): void {
+  cachedInbounds = null;
+  cachedInboundsTime = 0;
+  cachedNodeDomains = null;
+  cachedNodeDomainsTime = 0;
 }
 
 /**
