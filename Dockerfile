@@ -24,6 +24,7 @@ RUN npm run build
 
 # Этап 3: Запуск приложения
 FROM node:20-alpine AS runner
+RUN apk add --no-cache libc6-compat openssl
 WORKDIR /app
 
 ENV NODE_ENV=production
@@ -53,4 +54,4 @@ ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
 # Автоматически создаем БД при запуске, накатываем структуру Prisma и запускаем Next.js
-CMD node scripts/db-init.js && npx prisma db push --accept-data-loss && node server.js
+CMD node scripts/db-init.js && node node_modules/prisma/build/index.js db push --accept-data-loss && node server.js
