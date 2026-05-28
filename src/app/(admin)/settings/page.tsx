@@ -34,10 +34,7 @@ export default function SettingsPage() {
   const [tgAdminChatIds, setTgAdminChatIds] = useState('');
   const [syncInterval, setSyncInterval] = useState('15');
 
-  // Маппинг доменов нод (хранится в базе как строка JSON)
-  const [node0Domain, setNode0Domain] = useState('');
-  const [node1Domain, setNode1Domain] = useState('');
-  const [node2Domain, setNode2Domain] = useState('');
+
 
   // Загрузить текущие настройки
   useEffect(() => {
@@ -59,13 +56,7 @@ export default function SettingsPage() {
           setTgAdminChatIds(s.tg_admin_chat_ids || '');
           setSyncInterval(s.sync_interval_minutes || '15');
 
-          // Парсим домены нод
-          try {
-            const domains = JSON.parse(s.xui_node_domains || '{}');
-            setNode0Domain(domains['0'] || '');
-            setNode1Domain(domains['1'] || '');
-            setNode2Domain(domains['2'] || '');
-          } catch (e) {}
+
         }
       } catch (e) {
         console.error('Failed to load settings:', e);
@@ -85,13 +76,6 @@ export default function SettingsPage() {
     setError(null);
     setSuccess(null);
 
-    // Упаковываем домены нод обратно в JSON
-    const nodeDomains = {
-      '0': node0Domain.trim(),
-      '1': node1Domain.trim(),
-      '2': node2Domain.trim(),
-    };
-
     const payload = {
       xui_api_url: xuiApiUrl.trim(),
       xui_username: xuiUsername.trim(),
@@ -102,7 +86,6 @@ export default function SettingsPage() {
       tg_bot_token: tgBotToken.trim(),
       tg_admin_chat_ids: tgAdminChatIds.trim(),
       sync_interval_minutes: syncInterval.trim(),
-      xui_node_domains: JSON.stringify(nodeDomains),
     };
 
     try {
@@ -375,50 +358,7 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        {/* --- СЕКЦИЯ 2: МАППИНГ ДОМЕНОВ НОД (ГЕНЕРАЦИЯ ССЫЛОК) --- */}
-        <div className="settings-section glass-panel">
-          <div className="section-header">
-            <LinkIcon size={18} className="section-icon" style={{ color: '#a855f7' }} />
-            <span>Маппинг Доменов Нод VPN</span>
-          </div>
 
-          <span className="help-text" style={{ marginTop: '-10px' }}>
-            Введите публичные домены для каждой ноды. На основе этих доменов панель будет автоматически формировать конфигурационные ссылки (vless://...) для клиентов.
-          </span>
-
-          <div className="form-group">
-            <label className="form-label">Нода 0 — Главная BTW (Нидерланды Master)</label>
-            <input
-              type="text"
-              className="form-input"
-              placeholder="например: nl1.btw-vpn.com"
-              value={node0Domain}
-              onChange={(e) => setNode0Domain(e.target.value)}
-            />
-          </div>
-
-          <div className="form-group">
-            <label className="form-label">Нода 1 — Запуск (Нидерланды Slave)</label>
-            <input
-              type="text"
-              className="form-input"
-              placeholder="например: nl2.btw-vpn.com"
-              value={node1Domain}
-              onChange={(e) => setNode1Domain(e.target.value)}
-            />
-          </div>
-
-          <div className="form-group">
-            <label className="form-label">Нода 2 — Яндекс (Россия Slave)</label>
-            <input
-              type="text"
-              className="form-input"
-              placeholder="например: ru1.btw-vpn.com"
-              value={node2Domain}
-              onChange={(e) => setNode2Domain(e.target.value)}
-            />
-          </div>
-        </div>
 
         {/* --- СЕКЦИЯ 3: ОБЩИЕ БИЗНЕС НАСТРОЙКИ --- */}
         <div className="settings-section glass-panel">

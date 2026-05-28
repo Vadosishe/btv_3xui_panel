@@ -22,7 +22,6 @@ export async function GET() {
       xui_username: settingsMap.xui_username || 'admin',
       xui_password: settingsMap.xui_password || '',
       xui_api_token: settingsMap.xui_api_token || '',
-      xui_node_domains: settingsMap.xui_node_domains || '{}',
       btw_support_link: settingsMap.btw_support_link || 'https://t.me/btw_support_bot',
       app_panel_url: settingsMap.app_panel_url || process.env.NEXTAUTH_URL || 'http://localhost:3000',
       tg_bot_token: settingsMap.tg_bot_token || '',

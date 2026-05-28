@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { xuiGetInbounds, generateConfigLink } from '@/lib/xui';
+import { xuiGetInbounds, generateConfigLink, xuiGetNodeDomains } from '@/lib/xui';
 
 export async function GET(
   req: Request,
@@ -65,20 +65,8 @@ export async function GET(
         ? Math.min(100, Math.round((Number(usedBytes) / Number(limitBytes)) * 100)) 
         : 0;
 
-      // Генерируем конфигурации для ручного копирования
-      const nodeDomainsRaw = settingsMap.get('xui_node_domains') || '{}';
-      let nodeDomains: Record<string, string> = {};
-      try {
-        nodeDomains = JSON.parse(nodeDomainsRaw);
-      } catch (e) {}
-
-      let defaultDomain = 'vpn.btw.com';
-      const xuiUrl = settingsMap.get('xui_api_url') || '';
-      if (xuiUrl) {
-        try {
-          defaultDomain = new URL(xuiUrl).hostname;
-        } catch (e) {}
-      }
+      // Динамически получаем доменные имена нод из API 3XUI
+      const nodeDomains = await xuiGetNodeDomains();
 
       let configLinks: string[] = [];
       try {
@@ -109,19 +97,8 @@ export async function GET(
     }
 
     // Получаем инбаунды и генерируем конфиги
-    const nodeDomainsRaw = settingsMap.get('xui_node_domains') || '{}';
-    let nodeDomains: Record<string, string> = {};
-    try {
-      nodeDomains = JSON.parse(nodeDomainsRaw);
-    } catch (e) {}
-
-    let defaultDomain = 'vpn.btw.com';
-    const xuiUrl = settingsMap.get('xui_api_url') || '';
-    if (xuiUrl) {
-      try {
-        defaultDomain = new URL(xuiUrl).hostname;
-      } catch (e) {}
-    }
+    // Динамически получаем доменные имена нод из API 3XUI
+    const nodeDomains = await xuiGetNodeDomains();
 
     const inbounds = await xuiGetInbounds();
     const templateInboundIds: number[] = JSON.parse(client.template.inboundIdsJson || '[]');

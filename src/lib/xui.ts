@@ -350,3 +350,34 @@ export function generateConfigLink(
 
   return '';
 }
+
+/**
+ * Получить список всех нод и построить динамический маппинг ID -> Домен
+ */
+export async function xuiGetNodeDomains(): Promise<Record<string, string>> {
+  const nodeDomains: Record<string, string> = {};
+  
+  // По умолчанию Нода 0 — это сам главный (Master) сервер 3XUI
+  const config = await getXuiConfig();
+  try {
+    const mainHost = new URL(config.apiUrl).hostname;
+    nodeDomains['0'] = mainHost;
+  } catch (e) {
+    nodeDomains['0'] = 'vpn.btw.com';
+  }
+
+  try {
+    const data = await xuiRequest('/panel/api/nodes/list', 'GET');
+    if (data.success && Array.isArray(data.obj)) {
+      data.obj.forEach((node: any) => {
+        if (node.id !== undefined && node.address) {
+          nodeDomains[String(node.id)] = node.address;
+        }
+      });
+    }
+  } catch (err: any) {
+    console.error('Failed to fetch node list from 3XUI:', err.message);
+  }
+
+  return nodeDomains;
+}
