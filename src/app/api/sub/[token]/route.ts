@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { xuiGetInbounds, generateConfigLink, xuiGetNodeDomains } from '@/lib/xui';
+import QRCode from 'qrcode';
 
 export async function GET(
   req: Request,
@@ -119,7 +120,14 @@ export async function GET(
       } catch (e) {}
 
       // Отдаем красивую HTML страницу
-      return new NextResponse(renderSubscriptionPortal(client, usedGBText, limitGBText, progressPercent, configLinks, supportLink, tgBotUsername), {
+      let qrCodeDataUrl = '';
+      try {
+        const appPanelUrl = settingsMap.get('app_panel_url') || process.env.NEXTAUTH_URL || 'http://localhost:3000';
+        const personalSubUrl = `${appPanelUrl}/api/sub/${client.subscriptionToken}`;
+        qrCodeDataUrl = await QRCode.toDataURL(personalSubUrl);
+      } catch (qrErr) {}
+
+      return new NextResponse(renderSubscriptionPortal(client, usedGBText, limitGBText, progressPercent, configLinks, supportLink, tgBotUsername, qrCodeDataUrl), {
         headers: { 'Content-Type': 'text/html; charset=utf-8' },
       });
     }
@@ -255,12 +263,16 @@ function renderSubscriptionPortal(
   progress: number,
   configLinks: string[],
   supportLink: string,
-  tgBotUsername: string
+  tgBotUsername: string,
+  qrCodeDataUrl: string
 ): string {
   const configsJson = JSON.stringify(configLinks);
   const expirationText = client.expiresAt 
     ? new Date(client.expiresAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })
     : 'Безлимитная';
+
+  // Очищаем имя бота от возможного символа @ на входе
+  const cleanTgBotUsername = tgBotUsername.replace(/^@/, '').trim();
 
   return `
     <!DOCTYPE html>
@@ -269,6 +281,7 @@ function renderSubscriptionPortal(
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <title>Личный кабинет VPN | BTV</title>
+      <script src="https://telegram.org/js/telegram-web-app.js"></script>
       <style>
         body {
           background: #0a0c10;
@@ -540,7 +553,7 @@ function renderSubscriptionPortal(
           </div>
 
           <!-- Секция Telegram бота (Уведомления и контроль) -->
-          ${tgBotUsername ? `
+          ${cleanTgBotUsername ? `
             <div class="configs-section" style="border-top: 1px solid rgba(255,255,255,0.06); margin-top: 20px; padding-top: 20px;">
               <div style="font-size: 11px; color: #9ca3af; margin-bottom: 12px; text-align: center; display: flex; align-items: center; justify-content: center; gap: 6px;">
                 <span>🤖 Уведомления и Бот в Telegram</span>
@@ -548,11 +561,28 @@ function renderSubscriptionPortal(
               <div style="background: rgba(6, 182, 212, 0.05); border: 1px solid rgba(6, 182, 212, 0.15); padding: 15px; border-radius: 12px; text-align: left; font-size: 12px; color: #9be9f8; line-height: 1.5; margin-bottom: 12px;">
                 Привяжите нашего Telegram-бота, чтобы получать автоматические уведомления об окончании трафика или подписки и проверять баланс командой <b>/status</b>!
               </div>
-              <a href="https://t.me/${tgBotUsername}?start=${client.subscriptionToken}" target="_blank" class="btn-sub" style="display: block; text-decoration: none; text-align: center; background: linear-gradient(135deg, #0284c7, #0369a1);">
+              <a href="javascript:void(0)" onclick="openTgBot('https://t.me/${cleanTgBotUsername}?start=${client.subscriptionToken}')" class="btn-sub" style="display: block; text-decoration: none; text-align: center; background: linear-gradient(135deg, #0284c7, #0369a1);">
                 🔗 Привязать Telegram-бота
               </a>
             </div>
           ` : ''}
+
+          <!-- Секция QR-кода подписки -->
+          <div class="configs-section" style="border-top: 1px solid rgba(255,255,255,0.06); margin-top: 20px; padding-top: 20px; text-align: center;">
+            <div style="font-size: 11px; color: #9ca3af; margin-bottom: 12px; display: flex; align-items: center; justify-content: center; gap: 6px;">
+              <span>📱 QR-код подписки</span>
+            </div>
+            ${qrCodeDataUrl ? `
+              <div style="background: #fff; padding: 15px; border-radius: 12px; display: inline-block; box-shadow: 0 5px 25px rgba(0,0,0,0.5); margin-bottom: 10px;">
+                <img src="${qrCodeDataUrl}" alt="Subscription QR Code" style="width: 160px; height: 160px; display: block;" />
+              </div>
+              <div style="font-size: 11px; color: #6b7280; line-height: 1.4; max-width: 250px; margin: 0 auto;">
+                Сканируйте в v2rayNG / Sing-box / Shadowrocket для быстрого импорта
+              </div>
+            ` : `
+              <div style="font-size: 11px; color: var(--text-muted);">QR-код временно недоступен</div>
+            `}
+          </div>
 
           <!-- Секция AmneziaVPN (Архитектурный плейсхолдер) -->
           <div class="configs-section" style="border-top: 1px solid rgba(255,255,255,0.06); margin-top: 20px; padding-top: 20px;">
@@ -595,6 +625,14 @@ function renderSubscriptionPortal(
       <script>
         const configLinks = ${configsJson};
         const subUrl = window.location.href;
+
+        function openTgBot(url) {
+          if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.openTelegramLink) {
+            window.Telegram.WebApp.openTelegramLink(url);
+          } else {
+            window.open(url, '_blank');
+          }
+        }
 
         function showToast(message) {
           const toast = document.getElementById('toast');
