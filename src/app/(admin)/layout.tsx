@@ -14,6 +14,8 @@ import {
   Menu,
   X,
   History,
+  Sun,
+  Moon,
 } from 'lucide-react';
 
 interface AdminInfo {
@@ -30,6 +32,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [xuiStatus, setXuiStatus] = useState<'online' | 'offline'>('online');
+  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
 
   // Меню навигации
   const navItems = [
@@ -58,7 +61,23 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     }
 
     checkSession();
+
+    // Инициализируем тему при загрузке
+    const savedTheme = localStorage.getItem('theme') as 'dark' | 'light' | null;
+    if (savedTheme) {
+      setTheme(savedTheme);
+      document.documentElement.setAttribute('data-theme', savedTheme);
+    } else {
+      document.documentElement.setAttribute('data-theme', 'dark');
+    }
   }, [router]);
+
+  const toggleTheme = () => {
+    const nextTheme = theme === 'dark' ? 'light' : 'dark';
+    setTheme(nextTheme);
+    localStorage.setItem('theme', nextTheme);
+    document.documentElement.setAttribute('data-theme', nextTheme);
+  };
 
   // Запуск ручной синхронизации трафика
   const handleSync = async () => {
@@ -91,14 +110,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   };
 
   return (
-    <div style={{ display: 'flex', width: '100vw', minHeight: '100vh', background: '#0a0c10' }}>
+    <div style={{ display: 'flex', width: '100vw', minHeight: '100vh', background: 'var(--bg-main)' }}>
       
-      {/* --- СТИЛИ ДЛЯ МАКЕТА (CSS-in-JS для надежности или глобальные классы) --- */}
+      {/* --- СТИЛИ ДЛЯ МАКЕТА --- */}
       <style jsx global>{`
         .sidebar {
           width: 260px;
-          background: #0f1219;
-          border-right: 1px solid rgba(255, 255, 255, 0.05);
+          background: var(--bg-sidebar);
+          border-right: 1px solid var(--border-color);
           display: flex;
           flex-direction: column;
           padding: 20px;
@@ -137,13 +156,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           border-radius: 10px;
           font-size: 14px;
           font-weight: 500;
-          color: #9ca3af;
+          color: var(--text-secondary);
           transition: all 0.2s ease;
         }
 
         .nav-item:hover, .nav-item.active {
-          color: #fff;
-          background: rgba(255, 255, 255, 0.05);
+          color: var(--text-primary);
+          background: var(--border-color);
         }
 
         .nav-item.active {
@@ -158,7 +177,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         }
 
         .admin-footer {
-          border-top: 1px solid rgba(255, 255, 255, 0.05);
+          border-top: 1px solid var(--border-color);
           padding-top: 15px;
           display: flex;
           flex-direction: column;
@@ -173,12 +192,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         .admin-name {
           font-size: 14px;
           font-weight: 600;
-          color: #f3f4f6;
+          color: var(--text-primary);
         }
 
         .admin-email {
           font-size: 11px;
-          color: #6b7280;
+          color: var(--text-muted);
           margin-top: 2px;
         }
 
@@ -211,9 +230,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
         .header {
           height: 70px;
-          background: rgba(10, 12, 16, 0.8);
+          background: var(--bg-sidebar);
           backdrop-filter: blur(10px);
-          border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+          border-bottom: 1px solid var(--border-color);
           display: flex;
           align-items: center;
           justify-content: space-between;
@@ -232,26 +251,45 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         .header-title {
           font-size: 18px;
           font-weight: 700;
-          color: #f3f4f6;
+          color: var(--text-primary);
         }
 
         .header-right {
           display: flex;
           align-items: center;
-          gap: 20px;
+          gap: 15px;
         }
 
         .status-badge {
           display: flex;
           align-items: center;
           gap: 8px;
-          background: rgba(255, 255, 255, 0.03);
-          border: 1px solid rgba(255, 255, 255, 0.05);
+          background: var(--border-color);
+          border: 1px solid var(--border-color);
           padding: 6px 14px;
           border-radius: 20px;
           font-size: 12px;
           font-weight: 500;
-          color: #e5e7eb;
+          color: var(--text-secondary);
+        }
+
+        .btn-theme-toggle {
+          background: var(--border-color);
+          border: 1px solid var(--border-color);
+          color: var(--text-primary);
+          width: 38px;
+          height: 38px;
+          border-radius: 10px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+
+        .btn-theme-toggle:hover {
+          background: var(--border-hover);
+          border-color: var(--border-hover);
         }
 
         .btn-sync {
@@ -292,7 +330,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           display: none;
           background: none;
           border: none;
-          color: #f3f4f6;
+          color: var(--text-primary);
           cursor: pointer;
         }
 
@@ -323,7 +361,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       {/* --- SIDEBAR --- */}
       <aside className={`sidebar ${isMobileMenuOpen ? 'open' : ''}`}>
         <div className="sidebar-logo">
-          <span>⚡</span> BTW VPN PANEL
+          <span>⚡</span> BTV VPN PANEL
         </div>
         
         <nav className="nav-list">
@@ -376,6 +414,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               <span className={`pulse-indicator ${xuiStatus === 'offline' ? 'offline' : ''}`} />
               <span>3XUI Server</span>
             </div>
+
+            {/* Кнопка смены темы */}
+            <button 
+              className="btn-theme-toggle" 
+              onClick={toggleTheme}
+              title={theme === 'dark' ? 'Светлая тема' : 'Темная тема'}
+            >
+              {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+            </button>
 
             {/* Кнопка синхронизации трафика */}
             <button 

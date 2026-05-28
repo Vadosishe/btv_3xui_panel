@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "BTW VPN | Панель управления",
+  title: "BTV VPN | Панель управления",
   description: "Интеллектуальная B2B-панель управления VPN-серверами 3XUI",
   icons: {
     icon: "/favicon.ico",

@@ -175,7 +175,7 @@ function renderErrorPage(title: string, message: string, supportLink?: string): 
     <head>
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>${title} | BTW VPN</title>
+      <title>${title} | BTV VPN</title>
       <style>
         body {
           background: #08090c;
@@ -268,7 +268,7 @@ function renderSubscriptionPortal(
     <head>
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Личный кабинет VPN | BTW</title>
+      <title>Личный кабинет VPN | BTV</title>
       <style>
         body {
           background: #0a0c10;
@@ -477,7 +477,7 @@ function renderSubscriptionPortal(
     <body>
       <div class="container">
         <div class="header">
-          <div class="logo">BTW VPN SERVICE</div>
+          <div class="logo">BTV VPN SERVICE</div>
           <div class="company-badge">${client.company.name}</div>
         </div>
 
@@ -614,7 +614,7 @@ function renderSubscriptionPortal(
  */
 function generateAmneziaMockConfig(client: any, nodeDomain: string): string {
   const amneziaProfile = {
-    description: `BTW VPN (Amnezia) - ${client.name}`,
+    description: `BTV VPN (Amnezia) - ${client.name}`,
     hostName: nodeDomain,
     userName: "admin",
     port: 22,

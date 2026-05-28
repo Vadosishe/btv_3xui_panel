@@ -61,7 +61,7 @@ export async function handleTelegramMessage(token: string, message: any) {
           },
         });
 
-        const welcomeText = `🎉 <b>Успешно привязано!</b>\n\nПривет, ${client.name}! Ваша подписка <b>BTW VPN</b> успешно привязана к этому Telegram-аккаунту.\n\n<b>Компания:</b> ${client.company.name}\n\n👉 Напишите /status в любой момент, чтобы проверить баланс трафика и срок действия VPN-подключения!`;
+        const welcomeText = `🎉 <b>Успешно привязано!</b>\n\nПривет, ${client.name}! Ваша подписка <b>BTV VPN</b> успешно привязана к этому Telegram-аккаунту.\n\n<b>Компания:</b> ${client.company.name}\n\n👉 Напишите /status в любой момент, чтобы проверить баланс трафика и срок действия VPN-подключения!`;
         
         // Получаем URL личного кабинета
         const settings = await prisma.appSetting.findMany();
@@ -79,7 +79,7 @@ export async function handleTelegramMessage(token: string, message: any) {
       }
     } else {
       // Обычный /start без токена
-      const helpText = `👋 <b>Добро пожаловать в BTW VPN!</b>\n\nПривет, ${fromName}!\nЭтот бот предназначен для контроля лимитов и быстрого доступа к вашему VPN.\n\n💡 <b>Как привязать подписку:</b>\nПерейдите по вашей персональной ссылке подписки в браузере, найдите раздел Telegram-интеграции и нажмите кнопку привязки аккаунта!`;
+      const helpText = `👋 <b>Добро пожаловать в BTV VPN!</b>\n\nПривет, ${fromName}!\nЭтот бот предназначен для контроля лимитов и быстрого доступа к вашему VPN.\n\n💡 <b>Как привязать подписку:</b>\nПерейдите по вашей персональной ссылке подписки в браузере, найдите раздел Telegram-интеграции и нажмите кнопку привязки аккаунта!`;
       await sendTelegramMessage(token, chatId, helpText);
     }
     return;
@@ -115,7 +115,7 @@ export async function handleTelegramMessage(token: string, message: any) {
         statusEmoji = '🔴 Компания заблокирована';
       }
 
-      const statusText = `📊 <b>Статус VPN BTW:</b>\n\n` +
+      const statusText = `📊 <b>Статус VPN BTV:</b>\n\n` +
         `👤 <b>Имя:</b> ${client.name}\n` +
         `🏢 <b>Компания:</b> ${client.company.name}\n` +
         `🌐 <b>Статус:</b> ${statusEmoji}\n\n` +

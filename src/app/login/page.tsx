@@ -46,7 +46,7 @@ export default function LoginPage() {
 
       <div className="login-card">
         <div className="logo-header">
-          <div className="logo">BTW VPN SERVICE</div>
+          <div className="logo">BTV VPN SERVICE</div>
           <div className="sub-logo">БИЗНЕС-ПАНЕЛЬ УПРАВЛЕНИЯ VPN</div>
         </div>
 
@@ -65,7 +65,7 @@ export default function LoginPage() {
               <input
                 type="email"
                 className="form-input"
-                placeholder="admin@btw.vpn"
+                placeholder="admin@btv.vpn"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required

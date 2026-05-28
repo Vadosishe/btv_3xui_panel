@@ -489,7 +489,7 @@ export default function SettingsPage() {
         <div className="settings-section glass-panel">
           <div className="section-header">
             <Server size={18} className="section-icon" />
-            <span>Панель 3XUI (Нидерланды BTW Главный)</span>
+            <span>Панель 3XUI (Нидерланды BTV Главный)</span>
           </div>
 
           <div className="form-grid">
@@ -777,7 +777,7 @@ export default function SettingsPage() {
               <input
                 type="text"
                 className="form-input"
-                placeholder="btw_vpn_bot"
+                placeholder="btv_vpn_bot"
                 value={tgBotUsername}
                 onChange={(e) => setTgBotUsername(e.target.value)}
               />
@@ -919,7 +919,7 @@ export default function SettingsPage() {
               <input
                 type="email"
                 className="form-input"
-                placeholder="admin2@btw.vpn"
+                placeholder="admin2@btv.vpn"
                 value={newAdminEmail}
                 onChange={(e) => setNewAdminEmail(e.target.value)}
               />
