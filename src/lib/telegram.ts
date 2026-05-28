@@ -235,7 +235,9 @@ export async function handleTelegramMessage(token: string, message: any) {
       const personalSubUrl = `${appPanelUrl}/api/sub/${client.subscriptionToken}`;
 
       let keysMsg = `🔑 <b>Ваши персональные доступы VPN BTV:</b>\n\n` +
-        `🌐 <b>Умная ссылка подписки (нажмите для копирования):</b>\n` +
+        `🌐 <b>Умная ссылка подписки:</b>\n` +
+        `🔗 <a href="${personalSubUrl}">Открыть в браузере (для перехода)</a>\n\n` +
+        `📋 <b>Нажмите для копирования (в буфер):</b>\n` +
         `<code>${personalSubUrl}</code>\n\n`;
 
       if (configLinks.length > 0) {

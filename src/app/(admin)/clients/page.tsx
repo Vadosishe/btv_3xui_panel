@@ -92,6 +92,14 @@ export default function ClientsPage() {
 
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => {
+      setToast(null);
+    }, 2500);
+  };
 
   // Модалка просмотра ключей
   const [isKeysModalOpen, setIsKeysModalOpen] = useState(false);
@@ -268,7 +276,7 @@ export default function ClientsPage() {
   const copyToClipboard = (text: string, msg: string) => {
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(text)
-        .then(() => alert(msg))
+        .then(() => showToast(msg))
         .catch(() => fallbackCopy(text, msg));
     } else {
       fallbackCopy(text, msg);
@@ -287,12 +295,12 @@ export default function ClientsPage() {
     try {
       const successful = document.execCommand('copy');
       if (successful) {
-        alert(msg);
+        showToast(msg);
       } else {
-        alert('Не удалось скопировать автоматически. Пожалуйста, скопируйте вручную.');
+        showToast('Не удалось скопировать', 'error');
       }
     } catch (err) {
-      alert('Ошибка при копировании. Пожалуйста, скопируйте вручную.');
+      showToast('Ошибка при копировании', 'error');
     }
     document.body.removeChild(textArea);
   };
@@ -1405,6 +1413,13 @@ export default function ClientsPage() {
               </div>
             ) : null}
           </div>
+        </div>
+      )}
+
+      {/* Красивое всплывающее уведомление (Toast) */}
+      {toast && (
+        <div className={`toast-notification ${toast.type}`}>
+          {toast.message}
         </div>
       )}
 
