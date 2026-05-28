@@ -20,6 +20,8 @@ import {
   Copy,
   ExternalLink,
   QrCode,
+  Grid,
+  List,
 } from 'lucide-react';
 
 interface Company {
@@ -64,6 +66,7 @@ export default function ClientsPage() {
   const [templates, setTemplates] = useState<Template[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
   // Состояние поиска и фильтрации
   const [searchQuery, setSearchQuery] = useState('');
@@ -129,7 +132,16 @@ export default function ClientsPage() {
 
   useEffect(() => {
     loadData();
+    const savedViewMode = localStorage.getItem('clients_view_mode') as 'grid' | 'list' | null;
+    if (savedViewMode) {
+      setViewMode(savedViewMode);
+    }
   }, []);
+
+  const changeViewMode = (mode: 'grid' | 'list') => {
+    setViewMode(mode);
+    localStorage.setItem('clients_view_mode', mode);
+  };
 
   const openAddModal = () => {
     setEditingId(null);
@@ -383,6 +395,70 @@ export default function ClientsPage() {
           display: grid;
           grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
           gap: 15px;
+        }
+
+        /* Табличный вид строк */
+        .clients-table-wrapper {
+          overflow-x: auto;
+          background: var(--bg-card);
+          border-radius: var(--radius-md);
+          border: 1px solid var(--border-color);
+        }
+
+        .clients-table {
+          width: 100%;
+          border-collapse: collapse;
+          text-align: left;
+          font-size: 13px;
+        }
+
+        .clients-table th, .clients-table td {
+          padding: 14px 18px;
+          border-bottom: 1px solid var(--border-color);
+          white-space: nowrap;
+        }
+
+        .clients-table th {
+          font-size: 11px;
+          font-weight: 700;
+          color: var(--text-muted);
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          background: rgba(0, 0, 0, 0.15);
+        }
+
+        .clients-table tbody tr:hover {
+          background: var(--bg-card-hover);
+        }
+
+        .table-client-name {
+          font-weight: 700;
+          color: var(--text-primary);
+        }
+
+        .table-client-email {
+          font-size: 11px;
+          color: var(--text-muted);
+          margin-top: 2px;
+        }
+
+        .table-node-badge {
+          font-size: 9px; 
+          background: rgba(6, 182, 212, 0.08); 
+          border: 1px solid rgba(6, 182, 212, 0.15); 
+          color: #22d3ee; 
+          padding: 2px 5px; 
+          border-radius: 4px; 
+          font-weight: 600;
+        }
+
+        .table-traffic-text {
+          font-weight: 700;
+          color: var(--text-primary);
+        }
+
+        .table-expiry-text {
+          color: var(--text-secondary);
         }
 
         .client-card {
@@ -820,10 +896,50 @@ export default function ClientsPage() {
           </button>
         </div>
         
-        <button className="btn-add" onClick={openAddModal}>
-          <Plus size={16} />
-          <span>Выдать доступ</span>
-        </button>
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          {/* Переключатель вида */}
+          <div style={{ display: 'flex', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-color)', borderRadius: '10px', padding: '2px' }}>
+            <button
+              type="button"
+              onClick={() => changeViewMode('grid')}
+              style={{
+                background: viewMode === 'grid' ? 'var(--border-color)' : 'none',
+                border: 'none',
+                color: viewMode === 'grid' ? 'var(--text-primary)' : 'var(--text-secondary)',
+                padding: '6px 10px',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+              }}
+              title="Сетка карточек"
+            >
+              <Grid size={16} />
+            </button>
+            <button
+              type="button"
+              onClick={() => changeViewMode('list')}
+              style={{
+                background: viewMode === 'list' ? 'var(--border-color)' : 'none',
+                border: 'none',
+                color: viewMode === 'list' ? 'var(--text-primary)' : 'var(--text-secondary)',
+                padding: '6px 10px',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+              }}
+              title="Таблица / Строки"
+            >
+              <List size={16} />
+            </button>
+          </div>
+
+          <button className="btn-add" onClick={openAddModal}>
+            <Plus size={16} />
+            <span>Выдать доступ</span>
+          </button>
+        </div>
       </div>
 
       {/* Список клиентов */}
@@ -833,103 +949,197 @@ export default function ClientsPage() {
           <span style={{ marginLeft: '10px' }}>Загрузка VPN-клиентов...</span>
         </div>
       ) : filteredClients.length > 0 ? (
-        <div className="clients-grid">
-          {filteredClients.map((client) => {
-            const usedGB = (Number(client.usedTrafficBytes) / (1024 * 1024 * 1024)).toFixed(2);
-            
-            const limitGB = client.trafficLimitGB !== null ? client.trafficLimitGB : client.template.trafficLimitGB;
-            const limitText = limitGB > 0 ? `${limitGB} GB` : 'Безлимит';
+        viewMode === 'grid' ? (
+          <div className="clients-grid">
+            {filteredClients.map((client) => {
+              const usedGB = (Number(client.usedTrafficBytes) / (1024 * 1024 * 1024)).toFixed(2);
+              const limitGB = client.trafficLimitGB !== null ? client.trafficLimitGB : client.template.trafficLimitGB;
+              const limitText = limitGB > 0 ? `${limitGB} GB` : 'Безлимит';
+              const expiresText = client.expiresAt 
+                ? new Date(client.expiresAt).toLocaleDateString('ru-RU')
+                : 'Безлимит';
+              const expDate = client.expiresAt ? new Date(client.expiresAt) : null;
+              const isExpired = expDate ? expDate < new Date() : false;
 
-            const expiresText = client.expiresAt 
-              ? new Date(client.expiresAt).toLocaleDateString('ru-RU')
-              : 'Безлимит';
-
-            const expDate = client.expiresAt ? new Date(client.expiresAt) : null;
-            const isExpired = expDate ? expDate < new Date() : false;
-
-            return (
-              <div key={client.id} className="client-card glass-panel">
-                
-                <div>
-                  <div className="client-header">
-                    <div>
-                      <div className="client-title">{client.name}</div>
-                      <div className="client-email">{client.email}</div>
-                    </div>
-                    
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                      {client.isOnline && (
-                        <div className="online-badge">
-                          <div className="online-pulse" />
-                          <span>Онлайн</span>
-                        </div>
-                      )}
+              return (
+                <div key={client.id} className="client-card glass-panel">
+                  <div>
+                    <div className="client-header">
+                      <div>
+                        <div className="client-title">{client.name}</div>
+                        <div className="client-email">{client.email}</div>
+                      </div>
                       
-                      <div className={`status-pill ${client.isActive && !isExpired ? 'pill-active' : 'pill-inactive'}`}>
-                        {client.isActive && !isExpired ? <CheckCircle size={12} /> : <XCircle size={12} />}
-                        <span>{isExpired ? 'Истек' : client.isActive ? 'Активен' : 'Отключен'}</span>
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        {client.isOnline && (
+                          <div className="online-badge">
+                            <div className="online-pulse" />
+                            <span>Онлайн</span>
+                          </div>
+                        )}
+                        
+                        <div className={`status-pill ${client.isActive && !isExpired ? 'pill-active' : 'pill-inactive'}`}>
+                          {client.isActive && !isExpired ? <CheckCircle size={12} /> : <XCircle size={12} />}
+                          <span>{isExpired ? 'Истек' : client.isActive ? 'Активен' : 'Отключен'}</span>
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  <div className="badges-row">
-                    <span className="badge">
-                      <Building2 size={10} />
-                      <span>{client.company.name}</span>
-                    </span>
-                    <span className="badge">
-                      <Sliders size={10} />
-                      <span>{client.template.name}</span>
-                    </span>
-                  </div>
-
-                  {/* Сервера / Ноды (Из 3XUI) */}
-                  {client.nodes && client.nodes.length > 0 && (
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '10px', alignItems: 'center' }}>
-                      <span style={{ fontSize: '9px', color: '#6b7280', textTransform: 'uppercase', fontWeight: 700, marginRight: '2px' }}>Сервера:</span>
-                      {client.nodes.map((node, i) => (
-                        <span key={i} style={{ fontSize: '9px', background: 'rgba(6, 182, 212, 0.08)', border: '1px solid rgba(6, 182, 212, 0.15)', color: '#22d3ee', padding: '2px 5px', borderRadius: '4px', fontWeight: 600 }}>
-                          {node}
-                        </span>
-                      ))}
+                    <div className="badges-row">
+                      <span className="badge">
+                        <Building2 size={10} />
+                        <span>{client.company.name}</span>
+                      </span>
+                      <span className="badge">
+                        <Sliders size={10} />
+                        <span>{client.template.name}</span>
+                      </span>
                     </div>
-                  )}
+
+                    {/* Сервера / Ноды (Из 3XUI) */}
+                    {client.nodes && client.nodes.length > 0 && (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '10px', alignItems: 'center' }}>
+                        <span style={{ fontSize: '9px', color: '#6b7280', textTransform: 'uppercase', fontWeight: 700, marginRight: '2px' }}>Сервера:</span>
+                        {client.nodes.map((node, i) => (
+                          <span key={i} style={{ fontSize: '9px', background: 'rgba(6, 182, 212, 0.08)', border: '1px solid rgba(6, 182, 212, 0.15)', color: '#22d3ee', padding: '2px 5px', borderRadius: '4px', fontWeight: 600 }}>
+                            {node}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Лимиты */}
+                  <div className="limits-row">
+                    <div className="limit-box">
+                      <div className="limit-val">{usedGB} / {limitText}</div>
+                      <div className="limit-lbl">Использовано ГБ</div>
+                    </div>
+                    <div className="limit-box">
+                      <div className="limit-val">{expiresText}</div>
+                      <div className="limit-lbl">Истекает</div>
+                    </div>
+                  </div>
+
+                  <div className="client-footer">
+                    <div style={{ fontSize: '10px', color: '#6b7280' }}>
+                      UUID: {client.vpnUuid.substring(0, 8)}...
+                    </div>
+
+                    <div className="card-actions">
+                      <button className="action-icon action-keys" onClick={() => openKeysModal(client)} title="Показать QR-код и ключи VPN">
+                        <Key size={14} />
+                      </button>
+                      <button className="action-icon" onClick={() => openEditModal(client)} title="Редактировать">
+                        <Edit2 size={14} />
+                      </button>
+                      <button className="action-icon action-delete" onClick={() => handleDelete(client.id, client.name)} title="Удалить">
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </div>
                 </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="clients-table-wrapper glass-panel">
+            <table className="clients-table">
+              <thead>
+                <tr>
+                  <th>Сотрудник</th>
+                  <th>B2B Компания</th>
+                  <th>Шаблон</th>
+                  <th>Сервера</th>
+                  <th>Трафик (Использовано / Лимит)</th>
+                  <th>Срок действия</th>
+                  <th>Статус</th>
+                  <th style={{ textAlign: 'right' }}>Действия</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredClients.map((client) => {
+                  const usedGB = (Number(client.usedTrafficBytes) / (1024 * 1024 * 1024)).toFixed(2);
+                  const limitGB = client.trafficLimitGB !== null ? client.trafficLimitGB : client.template.trafficLimitGB;
+                  const limitText = limitGB > 0 ? `${limitGB} GB` : 'Безлимит';
+                  const expiresText = client.expiresAt 
+                    ? new Date(client.expiresAt).toLocaleDateString('ru-RU')
+                    : 'Безлимит';
+                  const expDate = client.expiresAt ? new Date(client.expiresAt) : null;
+                  const isExpired = expDate ? expDate < new Date() : false;
 
-                {/* Лимиты */}
-                <div className="limits-row">
-                  <div className="limit-box">
-                    <div className="limit-val">{usedGB} / {limitText}</div>
-                    <div className="limit-lbl">Использовано ГБ</div>
-                  </div>
-                  <div className="limit-box">
-                    <div className="limit-val">{expiresText}</div>
-                    <div className="limit-lbl">Истекает</div>
-                  </div>
-                </div>
-
-                <div className="client-footer">
-                  <div style={{ fontSize: '10px', color: '#6b7280' }}>
-                    UUID: {client.vpnUuid.substring(0, 8)}...
-                  </div>
-
-                  <div className="card-actions">
-                    <button className="action-icon action-keys" onClick={() => openKeysModal(client)} title="Показать QR-код и ключи VPN">
-                      <Key size={14} />
-                    </button>
-                    <button className="action-icon" onClick={() => openEditModal(client)} title="Редактировать">
-                      <Edit2 size={14} />
-                    </button>
-                    <button className="action-icon action-delete" onClick={() => handleDelete(client.id, client.name)} title="Удалить">
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                </div>
-
-              </div>
-            );
-          })}
-        </div>
+                  return (
+                    <tr key={client.id}>
+                      <td>
+                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                          <span className="table-client-name">{client.name}</span>
+                          <span className="table-client-email">{client.email}</span>
+                        </div>
+                      </td>
+                      <td>
+                        <span className="badge">
+                          <Building2 size={10} />
+                          <span>{client.company.name}</span>
+                        </span>
+                      </td>
+                      <td>
+                        <span className="badge">
+                          <Sliders size={10} />
+                          <span>{client.template.name}</span>
+                        </span>
+                      </td>
+                      <td>
+                        {client.nodes && client.nodes.length > 0 ? (
+                          <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                            {client.nodes.map((node, i) => (
+                              <span key={i} className="table-node-badge">
+                                {node}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <span style={{ color: '#6b7280', fontSize: '11px' }}>нет</span>
+                        )}
+                      </td>
+                      <td>
+                        <span className="table-traffic-text">{usedGB} / {limitText}</span>
+                      </td>
+                      <td>
+                        <span className="table-expiry-text">{expiresText}</span>
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                          {client.isOnline && (
+                            <div className="online-badge" style={{ padding: '2px 8px' }}>
+                              <div className="online-pulse" />
+                              <span>Онлайн</span>
+                            </div>
+                          )}
+                          <div className={`status-pill ${client.isActive && !isExpired ? 'pill-active' : 'pill-inactive'}`}>
+                            <span>{isExpired ? 'Истек' : client.isActive ? 'Активен' : 'Отключен'}</span>
+                          </div>
+                        </div>
+                      </td>
+                      <td>
+                        <div className="card-actions" style={{ justifyContent: 'flex-end' }}>
+                          <button className="action-icon action-keys" onClick={() => openKeysModal(client)} title="Показать QR-код и ключи VPN">
+                            <Key size={14} />
+                          </button>
+                          <button className="action-icon" onClick={() => openEditModal(client)} title="Редактировать">
+                            <Edit2 size={14} />
+                          </button>
+                          <button className="action-icon action-delete" onClick={() => handleDelete(client.id, client.name)} title="Удалить">
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )
       ) : (
         <div className="no-data" style={{ padding: '60px', textAlign: 'center', color: '#6b7280', fontSize: '13px' }}>
           Пользователи не найдены. Выдайте первый доступ кнопкой выше!
