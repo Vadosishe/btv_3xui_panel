@@ -68,8 +68,27 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       setTheme(savedTheme);
       document.documentElement.setAttribute('data-theme', savedTheme);
     } else {
-      document.documentElement.setAttribute('data-theme', 'dark');
+      const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      const defaultTheme = systemPrefersDark ? 'dark' : 'light';
+      setTheme(defaultTheme);
+      document.documentElement.setAttribute('data-theme', defaultTheme);
     }
+
+    // Слушатель изменения системной темы
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const handleSystemThemeChange = (e: MediaQueryListEvent) => {
+      const isUserControlled = localStorage.getItem('theme') !== null;
+      if (!isUserControlled) {
+        const newTheme = e.matches ? 'dark' : 'light';
+        setTheme(newTheme);
+        document.documentElement.setAttribute('data-theme', newTheme);
+      }
+    };
+
+    mediaQuery.addEventListener('change', handleSystemThemeChange);
+    return () => {
+      mediaQuery.removeEventListener('change', handleSystemThemeChange);
+    };
   }, [router]);
 
   const toggleTheme = () => {
