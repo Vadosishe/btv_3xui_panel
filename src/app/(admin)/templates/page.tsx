@@ -243,12 +243,12 @@ export default function TemplatesPage() {
         .template-title {
           font-size: 16px;
           font-weight: 700;
-          color: #f3f4f6;
+          color: var(--text-primary);
         }
 
         .template-desc {
           font-size: 12px;
-          color: #9ca3af;
+          color: var(--text-muted);
           line-height: 1.5;
           margin-bottom: 20px;
           flex-grow: 1;
@@ -259,8 +259,8 @@ export default function TemplatesPage() {
           display: grid;
           grid-template-columns: repeat(3, 1fr);
           gap: 10px;
-          background: rgba(0,0,0,0.15);
-          border: 1px solid rgba(255,255,255,0.03);
+          background: var(--border-color);
+          border: 1px solid var(--border-color);
           border-radius: 10px;
           padding: 12px;
           margin-bottom: 20px;
@@ -276,25 +276,25 @@ export default function TemplatesPage() {
         .limit-icon {
           display: flex;
           justify-content: center;
-          color: #6b7280;
+          color: var(--text-muted);
         }
 
         .limit-val {
           font-size: 13px;
           font-weight: 700;
-          color: #e5e7eb;
+          color: var(--text-primary);
         }
 
         .limit-lbl {
           font-size: 9px;
-          color: #6b7280;
+          color: var(--text-muted);
           text-transform: uppercase;
           font-weight: 500;
         }
 
         .inbounds-summary {
           font-size: 11px;
-          color: #9ca3af;
+          color: var(--text-muted);
           margin-bottom: 20px;
           display: flex;
           align-items: center;
@@ -305,7 +305,7 @@ export default function TemplatesPage() {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          border-top: 1px solid rgba(255,255,255,0.05);
+          border-top: 1px solid var(--border-color);
           padding-top: 15px;
         }
 
@@ -318,19 +318,19 @@ export default function TemplatesPage() {
           width: 32px;
           height: 32px;
           border-radius: 8px;
-          border: 1px solid rgba(255, 255, 255, 0.05);
+          border: 1px solid var(--border-color);
           display: flex;
           align-items: center;
           justify-content: center;
           cursor: pointer;
-          color: #9ca3af;
-          background: rgba(255, 255, 255, 0.02);
+          color: var(--text-muted);
+          background: var(--border-color);
           transition: all 0.2s;
         }
 
         .action-icon:hover {
-          color: #fff;
-          background: rgba(255, 255, 255, 0.06);
+          color: var(--text-primary);
+          background: var(--border-hover);
         }
 
         .action-delete:hover {

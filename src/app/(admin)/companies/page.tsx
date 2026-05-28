@@ -172,18 +172,18 @@ export default function CompaniesPage() {
 
         .search-input {
           width: 100%;
-          background: rgba(15, 18, 25, 0.4);
-          border: 1px solid rgba(255, 255, 255, 0.05);
+          background: var(--bg-card);
+          border: 1px solid var(--border-color);
           border-radius: 10px;
           padding: 10px 15px 10px 45px;
-          color: #fff;
+          color: var(--text-primary);
           font-size: 14px;
           transition: all 0.2s;
         }
 
         .search-input:focus {
-          border-color: #06b6d4;
-          background: rgba(15, 18, 25, 0.6);
+          border-color: var(--accent-cyan);
+          background: var(--bg-card-hover);
         }
 
         .btn-add {
@@ -231,12 +231,12 @@ export default function CompaniesPage() {
         .company-title {
           font-size: 16px;
           font-weight: 700;
-          color: #f3f4f6;
+          color: var(--text-primary);
         }
 
         .company-desc {
           font-size: 12px;
-          color: #9ca3af;
+          color: var(--text-muted);
           line-height: 1.5;
           margin-bottom: 20px;
           flex-grow: 1;
@@ -245,7 +245,7 @@ export default function CompaniesPage() {
         .company-stats {
           display: flex;
           gap: 20px;
-          border-top: 1px solid rgba(255, 255, 255, 0.05);
+          border-top: 1px solid var(--border-color);
           padding-top: 15px;
           margin-bottom: 20px;
         }
@@ -255,12 +255,12 @@ export default function CompaniesPage() {
           align-items: center;
           gap: 8px;
           font-size: 12px;
-          color: #e5e7eb;
+          color: var(--text-secondary);
         }
 
         .stat-val {
           font-weight: 700;
-          color: #06b6d4;
+          color: var(--accent-cyan);
         }
 
         .company-footer {
@@ -300,19 +300,19 @@ export default function CompaniesPage() {
           width: 32px;
           height: 32px;
           border-radius: 8px;
-          border: 1px solid rgba(255, 255, 255, 0.05);
+          border: 1px solid var(--border-color);
           display: flex;
           align-items: center;
           justify-content: center;
           cursor: pointer;
-          color: #9ca3af;
-          background: rgba(255, 255, 255, 0.02);
+          color: var(--text-muted);
+          background: var(--border-color);
           transition: all 0.2s;
         }
 
         .action-icon:hover {
-          color: #fff;
-          background: rgba(255, 255, 255, 0.06);
+          color: var(--text-primary);
+          background: var(--border-hover);
         }
 
         .action-delete:hover {
