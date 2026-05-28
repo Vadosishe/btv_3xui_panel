@@ -44,9 +44,19 @@ async function main() {
     if (res.rows.length === 0) {
       console.log(`База данных "${targetDb}" не найдена. Создаем её...`);
       
-      // Выполняем создание базы данных
-      await client.query(`CREATE DATABASE "${targetDb}"`);
-      console.log(`УСПЕХ: База данных "${targetDb}" успешно создана!`);
+      try {
+        // Пробуем создать стандартным способом
+        await client.query(`CREATE DATABASE "${targetDb}"`);
+        console.log(`УСПЕХ: База данных "${targetDb}" успешно создана!`);
+      } catch (createErr) {
+        if (createErr.message.includes('collation version mismatch') || createErr.message.includes('collation')) {
+          console.log(`Обнаружено несовпадение локали (collation mismatch). Пробуем создать с LC_COLLATE = 'C'...`);
+          await client.query(`CREATE DATABASE "${targetDb}" LC_COLLATE = 'C' LC_CTYPE = 'C'`);
+          console.log(`УСПЕХ: База данных "${targetDb}" создана с LC_COLLATE = 'C'!`);
+        } else {
+          throw createErr;
+        }
+      }
     } else {
       console.log(`База данных "${targetDb}" уже существует. Дополнительных действий не требуется.`);
     }
