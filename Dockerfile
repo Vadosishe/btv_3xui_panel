@@ -42,8 +42,8 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
 COPY --from=builder --chown=nextjs:nodejs /app/scripts ./scripts
 
-# Копируем все node_modules для корректной работы Prisma CLI
-COPY --from=builder /app/node_modules ./node_modules
+# Копируем все node_modules для корректной работы Prisma CLI с правами nextjs
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
 
 USER nextjs
 
