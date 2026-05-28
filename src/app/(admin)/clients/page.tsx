@@ -49,6 +49,8 @@ interface Client {
   expiresAt: string | null;
   flow: string | null;
   tgId: string | null;
+  telegramUsername?: string | null;
+  telegramFirstName?: string | null;
   isOnline?: boolean;
   nodes?: string[];
   usedTrafficBytes: string;
@@ -1241,6 +1243,12 @@ export default function ClientsPage() {
                         <Sliders size={10} />
                         <span>{client.template.name}</span>
                       </span>
+                      {client.tgId && (
+                        <span className="badge" style={{ background: 'rgba(168, 85, 247, 0.08)', borderColor: 'rgba(168, 85, 247, 0.2)', color: '#c084fc' }}>
+                          <span>🤖</span>
+                          <span>{client.telegramUsername ? `@${client.telegramUsername}` : client.tgId}</span>
+                        </span>
+                      )}
                     </div>
 
                     {/* Сервера / Ноды (Из 3XUI) */}
@@ -1336,7 +1344,15 @@ export default function ClientsPage() {
                       <td>
                         <div style={{ display: 'flex', flexDirection: 'column' }}>
                           <span className="table-client-name">{client.name}</span>
-                          <span className="table-client-email">{client.email}</span>
+                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '2px' }}>
+                            <span className="table-client-email">{client.email}</span>
+                            {client.tgId && (
+                              <span style={{ fontSize: '9px', background: 'rgba(168, 85, 247, 0.08)', border: '1px solid rgba(168, 85, 247, 0.2)', color: '#c084fc', padding: '1px 5px', borderRadius: '4px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '3px' }} title={`Telegram ID: ${client.tgId}`}>
+                                <span>🤖</span>
+                                <span>{client.telegramUsername ? `@${client.telegramUsername}` : client.tgId}</span>
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </td>
                       <td>
@@ -1579,14 +1595,38 @@ export default function ClientsPage() {
                     </select>
                   </div>
                   <div className="form-group" style={{ gridColumn: 'span 2' }}>
-                    <label className="form-label" style={{ fontSize: '10px' }}>Telegram ID (для алертов 3XUI)</label>
-                    <input
-                      type="text"
-                      className="form-input"
-                      placeholder="Например: 123456789"
-                      value={customTgId}
-                      onChange={(e) => setCustomTgId(e.target.value)}
-                    />
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <label className="form-label" style={{ fontSize: '10px' }}>Telegram ID (для алертов 3XUI)</label>
+                      {editingId && (() => {
+                        const editingClient = clients.find(c => c.id === editingId);
+                        return editingClient?.tgId ? (
+                          <span style={{ fontSize: '10px', color: '#c084fc', fontWeight: 600 }}>
+                            Привязан: {editingClient.telegramUsername ? `@${editingClient.telegramUsername}` : editingClient.telegramFirstName || 'Сотрудник'}
+                          </span>
+                        ) : null;
+                      })()}
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <input
+                        type="text"
+                        className="form-input"
+                        style={{ flexGrow: 1 }}
+                        placeholder="Например: 123456789"
+                        value={customTgId}
+                        onChange={(e) => setCustomTgId(e.target.value)}
+                      />
+                      {editingId && customTgId && (
+                        <button
+                          type="button"
+                          className="btn-cancel"
+                          style={{ padding: '0 15px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderColor: 'rgba(239, 68, 68, 0.25)', color: '#f87171', background: 'rgba(239, 68, 68, 0.05)', fontSize: '12px' }}
+                          onClick={() => setCustomTgId('')}
+                          title="Отвязать Telegram"
+                        >
+                          Отвязать
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}

@@ -34,6 +34,30 @@ export async function GET(
     const t3 = Date.now();
     console.log(`[SUB API BENCHMARK] Fetch settings: ${t3 - t2}ms`);
 
+    // Обработка веб-отвязки Telegram со страницы подписки
+    const action = searchParams.get('action');
+    if (action === 'unbind' && client) {
+      await prisma.client.update({
+        where: { id: client.id },
+        data: {
+          tgId: '',
+          telegramUsername: '',
+          telegramFirstName: '',
+        },
+      });
+
+      // Записываем лог в БД
+      await prisma.auditLog.create({
+        data: {
+          action: 'UNLINK_TELEGRAM',
+          details: `Клиент ${client.name} (${client.email}) отвязал свой Telegram через веб-кабинет подписки`,
+        },
+      });
+
+      const appPanelUrl = settingsMap.get('app_panel_url') || process.env.NEXTAUTH_URL || 'http://localhost:3000';
+      return NextResponse.redirect(`${appPanelUrl}/api/sub/${client.subscriptionToken}`);
+    }
+
     const supportLink = settingsMap.get('btw_support_link') || 'https://t.me/btw_support_bot';
     const tgBotUsername = settingsMap.get('xui_telegram_bot_username') || '';
 
@@ -583,12 +607,23 @@ function renderSubscriptionPortal(
               <div style="font-size: 11px; color: #9ca3af; margin-bottom: 12px; text-align: center; display: flex; align-items: center; justify-content: center; gap: 6px;">
                 <span>🤖 Уведомления и Бот в Telegram</span>
               </div>
-              <div style="background: rgba(6, 182, 212, 0.05); border: 1px solid rgba(6, 182, 212, 0.15); padding: 15px; border-radius: 12px; text-align: left; font-size: 12px; color: #9be9f8; line-height: 1.5; margin-bottom: 12px;">
-                Привяжите нашего Telegram-бота, чтобы получать автоматические уведомления об окончании трафика или подписки и проверять баланс командой <b>/status</b>!
-              </div>
-              <a href="javascript:void(0)" onclick="openTgBot('https://t.me/${cleanTgBotUsername}?start=${client.subscriptionToken}')" class="btn-sub" style="display: block; text-decoration: none; text-align: center; background: linear-gradient(135deg, #0284c7, #0369a1);">
-                🔗 Привязать Telegram-бота
-              </a>
+              ${client.tgId ? `
+                <div style="background: rgba(16, 185, 129, 0.05); border: 1px solid rgba(16, 185, 129, 0.15); padding: 15px; border-radius: 12px; text-align: left; font-size: 12px; color: #34d399; line-height: 1.5; margin-bottom: 12px;">
+                  <strong style="color: #fff; display: block; margin-bottom: 4px;">✅ Telegram привязан:</strong>
+                  Аккаунт: <b>${client.telegramUsername ? `@${client.telegramUsername}` : `имя: ${client.telegramFirstName || 'Пользователь'}`}</b> (ID: ${client.tgId})<br/>
+                  Вы получаете автоматические оповещения о VPN-подключении в мессенджере.
+                </div>
+                <a href="?action=unbind" class="btn-sub" style="display: block; text-decoration: none; text-align: center; background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.25); color: #f87171;">
+                  ❌ Отвязать аккаунт Telegram
+                </a>
+              ` : `
+                <div style="background: rgba(6, 182, 212, 0.05); border: 1px solid rgba(6, 182, 212, 0.15); padding: 15px; border-radius: 12px; text-align: left; font-size: 12px; color: #9be9f8; line-height: 1.5; margin-bottom: 12px;">
+                  Привяжите нашего Telegram-бота, чтобы получать автоматические уведомления об окончании трафика или подписки и проверять баланс командой <b>/status</b>!
+                </div>
+                <a href="javascript:void(0)" onclick="openTgBot('https://t.me/${cleanTgBotUsername}?start=${client.subscriptionToken}')" class="btn-sub" style="display: block; text-decoration: none; text-align: center; background: linear-gradient(135deg, #0284c7, #0369a1);">
+                  🔗 Привязать Telegram-бота
+                </a>
+              `}
             </div>
           ` : ''}
 

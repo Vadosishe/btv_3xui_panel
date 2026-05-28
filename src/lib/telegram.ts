@@ -48,17 +48,25 @@ export async function handleTelegramMessage(token: string, message: any) {
       });
 
       if (client) {
-        // Привязываем Telegram Chat ID
+        // Получаем информацию о Telegram профиле
+        const username = message.from?.username || '';
+        const firstName = message.from?.first_name || '';
+
+        // Привязываем Telegram Chat ID и метаданные профиля
         await prisma.client.update({
           where: { id: client.id },
-          data: { tgId: String(chatId) },
+          data: { 
+            tgId: String(chatId),
+            telegramUsername: username,
+            telegramFirstName: firstName
+          },
         });
 
         // Записываем в лог аудита
         await prisma.auditLog.create({
           data: {
             action: 'LINK_TELEGRAM',
-            details: `Клиент ${client.name} (${client.email}) успешно привязал свой Telegram ID: ${chatId}`,
+            details: `Клиент ${client.name} (${client.email}) привязал Telegram: @${username} (имя: ${firstName}, ID: ${chatId})`,
           },
         });
 
@@ -79,9 +87,29 @@ export async function handleTelegramMessage(token: string, message: any) {
         await sendTelegramMessage(token, chatId, '⚠️ <b>Ошибка привязки</b>\n\nНе удалось найти VPN-подписку по указанному коду. Убедитесь в корректности ссылки из личного кабинета.');
       }
     } else {
-      // Обычный /start без токена
-      const helpText = `👋 <b>Добро пожаловать в BTV VPN!</b>\n\nПривет, ${fromName}!\nЭтот бот предназначен для контроля лимитов и быстрого доступа к вашему VPN.\n\n💡 <b>Как привязать подписку:</b>\nПерейдите по вашей персональной ссылке подписки в браузере, найдите раздел Telegram-интеграции и нажмите кнопку привязки аккаунта!`;
-      await sendTelegramMessage(token, chatId, helpText);
+      // Обычный /start без токена: проверяем, привязан ли этот пользователь
+      const boundClient = await prisma.client.findFirst({
+        where: { tgId: String(chatId) },
+        include: { company: true }
+      });
+
+      if (boundClient) {
+        const welcomeText = `👋 <b>Вы уже привязаны к VPN BTV!</b>\n\nПривет, ${boundClient.name}!\nВаш Telegram-аккаунт успешно связан с подпиской BTV.\n\n<b>Компания:</b> ${boundClient.company.name}\n\n💡 <b>Доступные команды:</b>\n👉 /status — проверить остаток лимита трафика.\n👉 /unbind — отвязать этот Telegram от вашей VPN-подписки.`;
+        
+        const settings = await prisma.appSetting.findMany();
+        const settingsMap = new Map(settings.map(s => [s.key, s.value]));
+        const appPanelUrl = settingsMap.get('app_panel_url') || process.env.NEXTAUTH_URL || 'http://localhost:3000';
+        const personalSubUrl = `${appPanelUrl}/api/sub/${boundClient.subscriptionToken}`;
+
+        await sendTelegramMessage(token, chatId, welcomeText, {
+          inline_keyboard: [
+            [{ text: '📱 Открыть Кабинет VPN', web_app: { url: personalSubUrl } }]
+          ]
+        });
+      } else {
+        const helpText = `👋 <b>Добро пожаловать в BTV VPN!</b>\n\nПривет, ${fromName}!\nЭтот бот предназначен для контроля лимитов и быстрого доступа к вашему VPN.\n\n💡 <b>Как привязать подписку:</b>\nПерейдите по вашей персональной ссылке подписки в браузере, найдите раздел Telegram-интеграции и нажмите кнопку привязки аккаунта!`;
+        await sendTelegramMessage(token, chatId, helpText);
+      }
     }
     return;
   }
@@ -139,12 +167,45 @@ export async function handleTelegramMessage(token: string, message: any) {
     return;
   }
 
+  // Команда /unbind
+  if (text === '/unbind') {
+    const boundClient = await prisma.client.findFirst({
+      where: { tgId: String(chatId) },
+    });
+
+    if (boundClient) {
+      await prisma.client.update({
+        where: { id: boundClient.id },
+        data: {
+          tgId: '',
+          telegramUsername: '',
+          telegramFirstName: '',
+        },
+      });
+
+      // Записываем лог в БД
+      await prisma.auditLog.create({
+        data: {
+          action: 'UNLINK_TELEGRAM',
+          details: `Клиент ${boundClient.name} (${boundClient.email}) отвязал Telegram (Chat ID: ${chatId}) через команду в боте`,
+        },
+      });
+
+      const successText = `❌ <b>Связь с Telegram удалена!</b>\n\nВаш аккаунт Telegram больше не привязан к VPN-подписке BTV сотрудника <b>${boundClient.name}</b>.\n\nЕсли вы хотите привязать другой аккаунт, откройте персональный кабинет в браузере и выполните привязку повторно.`;
+      await sendTelegramMessage(token, chatId, successText);
+    } else {
+      await sendTelegramMessage(token, chatId, '⚠️ <b>Вы еще не привязали VPN-подписку!</b>\n\nЭтот Telegram-аккаунт не связан ни с одной активной VPN-подпиской BTV.');
+    }
+    return;
+  }
+
   // 3. Команда /help
   if (text === '/help') {
     const helpMsg = `🤖 <b>Доступные команды бота BTV VPN:</b>\n\n` +
       `📊 /status — Проверить баланс трафика, статус и срок действия подписки.\n` +
       `🔑 /config — Получить персональные ключи (VLESS/Trojan) и QR-код для ручного импорта.\n` +
       `📱 /instructions — Пошаговая инструкция по настройке VPN на iOS, Android, Windows, macOS.\n` +
+      `❌ /unbind — Отвязать этот аккаунт Telegram от VPN-подписки.\n` +
       `🆘 /support — Связаться с нашей службой технической поддержки.`;
     await sendTelegramMessage(token, chatId, helpMsg);
     return;

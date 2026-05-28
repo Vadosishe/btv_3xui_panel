@@ -62,6 +62,8 @@ model Client {
   expiresAt         DateTime?
   flow              String?   @default("") // Переопределение Flow
   tgId              String?   @default("") // Telegram ID для алертов 3XUI
+  telegramUsername  String?   @default("") // Имя пользователя Telegram
+  telegramFirstName String?   @default("") // Имя в Telegram
   
   // Статистика трафика (синхронизируется из 3XUI)
   usedTrafficBytes  BigInt    @default(0)

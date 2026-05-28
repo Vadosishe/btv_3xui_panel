@@ -233,6 +233,9 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     }
 
     // 4. --- Сохраняем обновленные данные в Postgres ---
+    const newTgId = customTgId !== undefined && customTgId !== null ? customTgId.trim() : client.tgId;
+    const isTgIdCleared = client.tgId && !newTgId;
+
     const updatedClient = await prisma.client.update({
       where: { id },
       data: {
@@ -243,7 +246,9 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         limitIp: customLimitIp !== undefined && customLimitIp !== null ? Number(customLimitIp) : null,
         expiresAt: expiresAt,
         flow: customFlow !== undefined && customFlow !== null ? customFlow.trim() : null,
-        tgId: customTgId !== undefined && customTgId !== null ? customTgId.trim() : null,
+        tgId: newTgId,
+        telegramUsername: isTgIdCleared ? "" : undefined,
+        telegramFirstName: isTgIdCleared ? "" : undefined,
         isActive: isClientEnabled,
       },
     });
