@@ -1,0 +1,91 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Администраторы панели
+model Admin {
+  id           String     @id @default(uuid())
+  email        String     @unique
+  name         String?
+  passwordHash String
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  logs         AuditLog[]
+}
+
+// B2B Компании
+model Company {
+  id          String   @id @default(uuid())
+  name        String   @unique // Например: "Zapus Group", "Dental Stom"
+  description String?
+  isActive    Boolean  @default(true)
+  clients     Client[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// Шаблоны VPN-подключения
+model Template {
+  id             String   @id @default(uuid())
+  name           String   @unique // Например: "EU + RU (VLESS)", "Only Russia (Trojan)"
+  description    String?
+  inboundIdsJson String   // JSON-массив ID инбаундов из 3XUI (например, "[1, 2]")
+  trafficLimitGB Int      @default(0) // 0 - безлимит
+  limitIp        Int      @default(0) // 0 - безлимит
+  durationDays   Int      @default(30) // Срок действия по умолчанию
+  clients        Client[]
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+// Клиенты (Сотрудники компаний)
+model Client {
+  id                String    @id @default(uuid())
+  name              String    // ФИО или идентификатор сотрудника
+  email             String    @unique // Уникальный email для 3XUI (например, client_uuid@btw.vpn)
+  vpnUuid           String    // UUID для Xray ключей
+  subscriptionToken String    @unique @default(uuid()) // Токен для Smart Subscription Link
+  isActive          Boolean   @default(true)
+  
+  // Переопределение лимитов (если null, то берутся из шаблона)
+  trafficLimitGB    Int?
+  limitIp           Int?
+  expiresAt         DateTime?
+
+  // Статистика трафика (синхронизируется из 3XUI)
+  usedTrafficBytes  BigInt    @default(0)
+  lastSyncedAt      DateTime?
+
+  // Связи
+  companyId         String
+  company           Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  templateId        String
+  template          Template  @relation(fields: [templateId], references: [id])
+  
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+}
+
+// Лог аудита действий администраторов
+model AuditLog {
+  id        String   @id @default(uuid())
+  action    String   // "CREATE_CLIENT", "DISABLE_CLIENT", "SYNC_TRAFFIC", "UPDATE_COMPANY"
+  details   String
+  adminId   String?
+  admin     Admin?   @relation(fields: [adminId], references: [id], onDelete: SetNull)
+  createdAt DateTime @default(now())
+}
+
+// Настройки приложения (чтобы менять URL и ключи 3XUI из UI панели без перезапуска докера)
+model AppSetting {
+  key   String @id
+  value String
+}

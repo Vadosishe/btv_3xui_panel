@@ -1,0 +1,226 @@
+version: '3.8'
+
+services:
+  nginx-proxy-manager:
+    image: jc21/nginx-proxy-manager:latest
+    container_name: scalebox_npm
+    restart: unless-stopped
+    ports:
+      - "80:80"     # HTTP трафик
+      - "443:443"   # HTTPS трафик
+      - "81:81"     # Админ-панель NPM
+    volumes:
+      - npm_data:/data
+      - npm_letsencrypt:/etc/letsencrypt
+      - /srv/docker/nginx_landing:/srv/docker/nginx_landing
+    networks:
+      network-app:
+        ipv4_address: 10.0.66.10
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: scalebox_rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      - RABBITMQ_DEFAULT_USER=scalebox_user
+      - RABBITMQ_DEFAULT_PASS=Sbx!q9Zr7Lx@2fWc
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    restart: unless-stopped
+    networks:
+      network-app:
+        ipv4_address: 10.0.66.13
+
+  redis:
+    image: redis:latest
+    container_name: scalebox_redis
+    command: ["redis-server", "--requirepass", "R3d!sP@ssw0rd123"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    restart: unless-stopped
+    networks:
+      network-app:
+        ipv4_address: 10.0.66.12
+
+  postgres:
+    image: postgres:latest
+    container_name: scalebox_postgres
+    environment:
+      - POSTGRES_USER=n8n_user
+      - POSTGRES_PASSWORD=P0stgr3s!Pass456
+      - POSTGRES_DB=n8n
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    restart: always
+    networks:
+      network-app:
+        ipv4_address: 10.0.66.14
+
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:1.123.46
+    container_name: scalebox_n8n
+    depends_on:
+      - postgres
+      - redis
+      - browserless
+    ports:
+      - "5678:5678"
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - /etc/localtime:/etc/localtime:ro
+      - /opt/n8n/files:/files  
+    environment:
+      - NODE_OPTIONS=--max-old-space-size=5120
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_HOST=postgres
+      - DB_POSTGRESDB_PORT=5432
+      - DB_POSTGRESDB_DATABASE=n8n
+      - DB_POSTGRESDB_USER=n8n_user
+      - DB_POSTGRESDB_PASSWORD=P0stgr3s!Pass456
+      - QUEUE_BULL_REDIS_HOST=redis
+      - QUEUE_BULL_REDIS_PORT=6379
+      - QUEUE_BULL_REDIS_PASSWORD=R3d!sP@ssw0rd123
+      - N8N_HOST=n8n.scalebox.ai
+      - WEBHOOK_URL=https://n8n.scalebox.ai/
+      - WEBHOOK_TUNNEL_URL=https://n8n.scalebox.ai/
+      - NODE_FUNCTION_ALLOW_EXTERNAL=puppeteer
+      - PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
+      - N8N_METRICS=true
+      - N8N_METRICS_INCLUDE_QUEUE_METRICS=true
+      - EXECUTIONS_DATA_MAX_AGE=7
+      - EXECUTIONS_DATA_PRUNE_MAX_COUNT=1000000
+    restart: always
+    networks:
+      network-app:
+        ipv4_address: 10.0.66.11
+
+  browserless:
+    image: ghcr.io/browserless/chromium:latest
+    container_name: scalebox_browserless
+    ports:
+      - "3000:3000"
+    environment:
+      - TOKEN=6R0W53R135510
+      - MAX_CONCURRENT_SESSIONS=5
+    restart: always
+    networks:
+      network-app:
+        ipv4_address: 10.0.66.16
+
+  drawio:
+    image: jgraph/drawio:latest
+    container_name: scalebox_drawio
+    ports:
+      - "8080:8080"
+    restart: always
+    networks:
+      network-app:
+        ipv4_address: 10.0.66.15
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: scalebox_prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    restart: always
+    networks:
+      network-app:
+        ipv4_address: 10.0.66.18
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: scalebox_grafana
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=Grafana!Pass123
+      - GF_USERS_ALLOW_SIGN_UP=true
+    volumes:
+      - grafana_data:/var/lib/grafana
+    restart: always
+    networks:
+      network-app:
+        ipv4_address: 10.0.66.17
+
+  vaultwarden:
+    image: vaultwarden/server:latest
+    container_name: scalebox_vaultwarden
+    depends_on:
+      - postgres
+    ports:
+      - "8081:8080"
+    volumes:
+      - vaultwarden_data:/data
+    environment:
+      - ROCKET_PORT=8080
+      - ROCKET_ADDRESS=0.0.0.0
+      - ADMIN_TOKEN=030499Vlad
+      - SIGNUPS_ALLOWED=true
+      - DATABASE_URL=postgres://n8n_user:P0stgr3s!Pass456@postgres:5432/n8n
+      - WEBSOCKET_ENABLED=true
+    restart: always
+    networks:
+      network-app:
+        ipv4_address: 10.0.66.19
+
+  # --- НОВЫЙ СЕРВИС: БИЗНЕС-ПАНЕЛЬ VPN ---
+  vpn-panel:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: scalebox_vpn_panel
+    restart: always
+    depends_on:
+      - postgres
+    # Внутренний порт Next.js - 3000. Пробрасываем на хост как 3002 (так как 3001 занят Grafana)
+    ports:
+      - "3002:3000"
+    environment:
+      # Подключение к вашей существующей БД Postgres
+      # РЕКОМЕНДУЕТСЯ: создать отдельную БД 'vpn_panel_db' в вашем Postgres.
+      # Но если лень, можно указать существующую 'n8n' (наши таблицы не пересекутся с n8n):
+      # - DATABASE_URL=postgresql://n8n_user:P0stgr3s!Pass456@postgres:5432/n8n?schema=public
+      - DATABASE_URL=postgresql://n8n_user:P0stgr3s!Pass456@postgres:5432/vpn_panel_db?schema=public
+      
+      # Случайный длинный секретный ключ для JWT-подписей (измените при желании)
+      - JWT_SECRET=BTW_Super_Secret_JWT_Scalebox_123!_Change_Me_In_Prod
+      
+      # Публичный адрес панели (замените на ваш домен подписки, например, vpn.scalebox.ai)
+      - NEXTAUTH_URL=https://vpn.scalebox.ai
+      
+      # Фоновая синхронизация (каждые 15 минут)
+      - SYNC_INTERVAL_MINUTES=15
+    volumes:
+      - ./vpn_backups:/app/backups
+    networks:
+      network-app:
+        # Идеально ложится следующим свободным адресом в вашей сети!
+        ipv4_address: 10.0.66.20
+
+networks:
+  network-app:
+    ipam:
+      config:
+        - subnet: 10.0.66.0/24
+
+volumes:
+  npm_data:
+  npm_letsencrypt:
+  redisdata:
+  postgres_data:
+  n8n_data:
+  rabbitmq_data:
+  grafana_data:
+  prometheus_data:
+  vaultwarden_data:
