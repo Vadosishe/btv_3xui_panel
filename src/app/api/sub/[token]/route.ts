@@ -77,7 +77,7 @@ export async function GET(
           const inbound = inbounds.find(i => i.id === inboundId);
           if (inbound) {
             const inboundNodeId = inbound.nodeId !== undefined ? String(inbound.nodeId) : '0';
-            const nodeDomain = nodeDomains[inboundNodeId] || defaultDomain;
+            const nodeDomain = nodeDomains[inboundNodeId] || nodeDomains['0'] || 'vpn.btw.com';
             const link = generateConfigLink(inbound, client.vpnUuid, client.email, nodeDomain);
             if (link) configLinks.push(link);
           }
@@ -108,7 +108,7 @@ export async function GET(
       const inbound = inbounds.find(i => i.id === inboundId);
       if (inbound) {
         const inboundNodeId = inbound.nodeId !== undefined ? String(inbound.nodeId) : '0';
-        const nodeDomain = nodeDomains[inboundNodeId] || defaultDomain;
+        const nodeDomain = nodeDomains[inboundNodeId] || nodeDomains['0'] || 'vpn.btw.com';
         const link = generateConfigLink(inbound, client.vpnUuid, client.email, nodeDomain);
         if (link) configs.push(link);
       }
