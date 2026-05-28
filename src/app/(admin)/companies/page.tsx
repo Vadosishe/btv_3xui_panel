@@ -13,6 +13,7 @@ import {
   XCircle,
   AlertTriangle,
   Loader,
+  Download,
 } from 'lucide-react';
 
 interface Company {
@@ -29,6 +30,48 @@ export default function CompaniesPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // Групповой экспорт и уведомления
+  const [exportingCompanyId, setExportingCompanyId] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => {
+      setToast(null);
+    }, 2500);
+  };
+
+  const handleExportCompanyZIP = async (companyId: string, companyName: string) => {
+    setExportingCompanyId(companyId);
+    try {
+      const res = await fetch('/api/admin/clients/export', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ companyId }),
+      });
+
+      if (res.ok) {
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `btv-vpn-${companyName.replace(/\s+/g, '_')}-configs.zip`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+        showToast(`Архив компании "${companyName}" успешно скачан!`);
+      } else {
+        const errData = await res.json();
+        showToast(errData.error || 'Ошибка при экспорте архива', 'error');
+      }
+    } catch (e) {
+      showToast('Ошибка сети. Проверьте соединение.', 'error');
+    } finally {
+      setExportingCompanyId(null);
+    }
+  };
 
   // Форма добавления/редактирования
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -321,6 +364,38 @@ export default function CompaniesPage() {
           border-color: rgba(239, 68, 68, 0.2);
         }
 
+        .action-download:hover {
+          color: #06b6d4;
+          background: rgba(6, 182, 212, 0.1);
+          border-color: rgba(6, 182, 212, 0.2);
+        }
+
+        /* Toast notifications */
+        .toast-notification {
+          position: fixed;
+          bottom: 24px;
+          right: 24px;
+          background: #10b981;
+          color: #fff;
+          padding: 12px 24px;
+          border-radius: 10px;
+          font-size: 13px;
+          font-weight: 700;
+          box-shadow: 0 10px 25px rgba(16, 185, 129, 0.2);
+          z-index: 110;
+          animation: slideInToast 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .toast-notification.error {
+          background: #ef4444;
+          box-shadow: 0 10px 25px rgba(239, 68, 68, 0.2);
+        }
+
+        @keyframes slideInToast {
+          from { transform: translateY(50px); opacity: 0; }
+          to { transform: translateY(0); opacity: 1; }
+        }
+
         /* Модальное окно */
         .modal-overlay {
           position: fixed;
@@ -490,6 +565,22 @@ export default function CompaniesPage() {
                 </div>
 
                 <div className="card-actions">
+                  <button 
+                    className="action-icon action-download" 
+                    onClick={() => handleExportCompanyZIP(company.id, company.name)} 
+                    disabled={exportingCompanyId === company.id || (company._count?.clients || 0) === 0}
+                    title="Скачать все конфиги сотрудников архивом ZIP"
+                    style={{
+                      opacity: (company._count?.clients || 0) === 0 ? 0.4 : 1,
+                      cursor: (company._count?.clients || 0) === 0 ? 'not-allowed' : 'pointer'
+                    }}
+                  >
+                    {exportingCompanyId === company.id ? (
+                      <Loader size={14} className="spinner" style={{ color: '#06b6d4' }} />
+                    ) : (
+                      <Download size={14} />
+                    )}
+                  </button>
                   <button className="action-icon" onClick={() => openEditModal(company)} title="Редактировать">
                     <Edit2 size={14} />
                   </button>
@@ -567,6 +658,13 @@ export default function CompaniesPage() {
               </div>
             </form>
           </div>
+        </div>
+      )}
+
+      {/* Красивое всплывающее уведомление (Toast) */}
+      {toast && (
+        <div className={`toast-notification ${toast.type}`}>
+          {toast.message}
         </div>
       )}
     </div>

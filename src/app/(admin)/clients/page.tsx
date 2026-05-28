@@ -21,6 +21,7 @@ import {
   QrCode,
   Grid,
   List,
+  Download,
 } from 'lucide-react';
 
 interface Company {
@@ -74,6 +75,11 @@ export default function ClientsPage() {
   const [filterStatus, setFilterStatus] = useState(''); // '', 'active', 'inactive'
   const [sortBy, setSortBy] = useState('name'); // 'name', 'traffic', 'expiry', 'status'
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+
+  // Групповые операции
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [creationMode, setCreationMode] = useState<'single' | 'bulk'>('single');
+  const [bulkNames, setBulkNames] = useState('');
 
   // Форма добавления/редактирования
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -145,6 +151,11 @@ export default function ClientsPage() {
     }
   }, []);
 
+  // Очистка выделения при изменении списка клиентов
+  useEffect(() => {
+    setSelectedIds(prev => prev.filter(id => clients.some(c => c.id === id)));
+  }, [clients]);
+
   const changeViewMode = (mode: 'grid' | 'list') => {
     setViewMode(mode);
     localStorage.setItem('clients_view_mode', mode);
@@ -153,6 +164,8 @@ export default function ClientsPage() {
   const openAddModal = () => {
     setEditingId(null);
     setName('');
+    setBulkNames('');
+    setCreationMode('single');
     setCompanyId(companies[0]?.id || '');
     setTemplateId(templates[0]?.id || '');
     setHasCustomLimits(false);
@@ -211,6 +224,85 @@ export default function ClientsPage() {
     }
   };
 
+  // Выбор всех клиентов
+  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.checked) {
+      setSelectedIds(filteredClients.map(c => c.id));
+    } else {
+      setSelectedIds([]);
+    }
+  };
+
+  // Выбор конкретной строки
+  const handleSelectRow = (id: string, checked: boolean) => {
+    if (checked) {
+      setSelectedIds(prev => [...prev, id]);
+    } else {
+      setSelectedIds(prev => prev.filter(item => item !== id));
+    }
+  };
+
+  // Экспорт выбранных клиентов ZIP архивом
+  const handleExportZIP = async (ids?: string[]) => {
+    const targetIds = ids || selectedIds;
+    if (targetIds.length === 0) return;
+    
+    try {
+      const res = await fetch('/api/admin/clients/export', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clientIds: targetIds }),
+      });
+      
+      if (res.ok) {
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'btv-vpn-configs.zip';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+        showToast('Конфигурации ZIP успешно скачаны!');
+      } else {
+        const errData = await res.json();
+        showToast(errData.error || 'Ошибка при экспорте архива', 'error');
+      }
+    } catch (e) {
+      showToast('Ошибка подключения к серверу', 'error');
+    }
+  };
+
+  // Групповое удаление клиентов
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return;
+    const confirmed = window.confirm(`Вы действительно хотите удалить ${selectedIds.length} выбранных клиентов?\nЭто удалит все их VPN подключения на серверах 3XUI!`);
+    if (!confirmed) return;
+    
+    setIsLoading(true);
+    try {
+      let successCount = 0;
+      let failCount = 0;
+      
+      const deletePromises = selectedIds.map(id => 
+        fetch(`/api/admin/clients/${id}`, { method: 'DELETE' })
+          .then(res => res.ok ? successCount++ : failCount++)
+          .catch(() => failCount++)
+      );
+      
+      await Promise.all(deletePromises);
+      
+      showToast(`Успешно удалено сотрудников: ${successCount}. Сбоев: ${failCount}`);
+      setSelectedIds([]);
+      loadData();
+    } catch (e) {
+      showToast('Ошибка при групповом удалении', 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Сохранить изменения
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -218,11 +310,21 @@ export default function ClientsPage() {
     setIsSaving(true);
     setError(null);
 
+    if (!editingId && creationMode === 'bulk' && !bulkNames.trim()) {
+      setError('Введите список имен сотрудников');
+      setIsSaving(false);
+      return;
+    }
+    if ((editingId || creationMode === 'single') && !name.trim()) {
+      setError('Введите ФИО сотрудника');
+      setIsSaving(false);
+      return;
+    }
+
     const url = editingId ? `/api/admin/clients/${editingId}` : '/api/admin/clients';
     const method = editingId ? 'PUT' : 'POST';
 
-    const payload = {
-      name,
+    const payload: any = {
       companyId,
       templateId,
       customTrafficLimitGB: hasCustomLimits && customTrafficLimitGB !== '' ? Number(customTrafficLimitGB) : null,
@@ -232,6 +334,16 @@ export default function ClientsPage() {
       customTgId: hasCustomLimits && customTgId !== '' ? customTgId : null,
       isActive,
     };
+
+    if (editingId) {
+      payload.name = name;
+    } else {
+      if (creationMode === 'single') {
+        payload.name = name;
+      } else {
+        payload.names = bulkNames;
+      }
+    }
 
     try {
       const res = await fetch(url, {
@@ -244,6 +356,7 @@ export default function ClientsPage() {
       if (res.ok && data.success) {
         setIsModalOpen(false);
         loadData();
+        showToast(editingId ? 'Изменения сохранены!' : 'Доступ успешно выдан!');
       } else {
         setError(data.error || 'Ошибка при сохранении');
       }
@@ -862,6 +975,92 @@ export default function ClientsPage() {
 
         .spinner { animation: spin 1s linear infinite; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+        /* Floating panel for bulk operations */
+        .bulk-bar-floating {
+          position: fixed;
+          bottom: 24px;
+          left: 50%;
+          transform: translateX(-50%);
+          background: rgba(15, 23, 42, 0.85);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
+          border: 1px solid rgba(6, 182, 212, 0.3);
+          border-radius: 16px;
+          padding: 12px 24px;
+          display: flex;
+          align-items: center;
+          gap: 15px;
+          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 15px rgba(6, 182, 212, 0.15);
+          z-index: 90;
+          animation: slideUpFloating 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes slideUpFloating {
+          from { transform: translate(-50%, 100px); opacity: 0; }
+          to { transform: translate(-50%, 0); opacity: 1; }
+        }
+
+        .bulk-text {
+          font-size: 13px;
+          font-weight: 600;
+          color: #f3f4f6;
+          white-space: nowrap;
+        }
+
+        .bulk-count {
+          background: linear-gradient(135deg, #06b6d4, #a855f7);
+          color: #fff;
+          padding: 2px 8px;
+          border-radius: 20px;
+          font-size: 11px;
+          font-weight: 800;
+          margin-left: 4px;
+        }
+
+        .btn-bulk-action {
+          background: var(--bg-sidebar);
+          border: 1px solid var(--border-color);
+          color: var(--text-primary);
+          padding: 8px 16px;
+          border-radius: 8px;
+          font-size: 12px;
+          font-weight: 700;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          transition: all 0.2s;
+        }
+
+        .btn-bulk-action:hover {
+          background: var(--border-color);
+          border-color: var(--text-muted);
+        }
+
+        .btn-bulk-download {
+          background: linear-gradient(135deg, #06b6d4, #0891b2);
+          color: #fff;
+          border: 1px solid rgba(6, 182, 212, 0.4);
+        }
+
+        .btn-bulk-download:hover {
+          opacity: 0.9;
+          transform: translateY(-1px);
+          box-shadow: 0 4px 12px rgba(6, 182, 212, 0.2);
+        }
+
+        .btn-bulk-delete {
+          background: rgba(239, 68, 68, 0.1);
+          border-color: rgba(239, 68, 68, 0.3);
+          color: #f87171;
+        }
+
+        .btn-bulk-delete:hover {
+          background: rgba(239, 68, 68, 0.2);
+          border-color: #ef4444;
+          color: #fff;
+        }
       `}</style>
 
       {/* Панель фильтров и поиска */}
@@ -1005,9 +1204,17 @@ export default function ClientsPage() {
                 <div key={client.id} className="client-card glass-panel">
                   <div>
                     <div className="client-header">
-                      <div>
-                        <div className="client-title">{client.name}</div>
-                        <div className="client-email">{client.email}</div>
+                      <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+                        <input 
+                          type="checkbox" 
+                          checked={selectedIds.includes(client.id)} 
+                          onChange={(e) => handleSelectRow(client.id, e.target.checked)} 
+                          style={{ cursor: 'pointer', marginTop: '5px', transform: 'scale(1.15)', accentColor: '#06b6d4' }}
+                        />
+                        <div>
+                          <div className="client-title">{client.name}</div>
+                          <div className="client-email">{client.email}</div>
+                        </div>
                       </div>
                       
                       <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
@@ -1087,6 +1294,14 @@ export default function ClientsPage() {
             <table className="clients-table">
               <thead>
                 <tr>
+                  <th style={{ width: '40px', padding: '14px 18px' }}>
+                    <input 
+                      type="checkbox" 
+                      checked={filteredClients.length > 0 && selectedIds.length === filteredClients.length} 
+                      onChange={handleSelectAll} 
+                      style={{ cursor: 'pointer', transform: 'scale(1.15)', accentColor: '#06b6d4' }}
+                    />
+                  </th>
                   <th>Сотрудник</th>
                   <th>B2B Компания</th>
                   <th>Шаблон</th>
@@ -1110,6 +1325,14 @@ export default function ClientsPage() {
 
                   return (
                     <tr key={client.id}>
+                      <td style={{ padding: '14px 18px' }}>
+                        <input 
+                          type="checkbox" 
+                          checked={selectedIds.includes(client.id)} 
+                          onChange={(e) => handleSelectRow(client.id, e.target.checked)} 
+                          style={{ cursor: 'pointer', transform: 'scale(1.15)', accentColor: '#06b6d4' }}
+                        />
+                      </td>
                       <td>
                         <div style={{ display: 'flex', flexDirection: 'column' }}>
                           <span className="table-client-name">{client.name}</span>
@@ -1203,17 +1426,73 @@ export default function ClientsPage() {
 
             <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
               
-              <div className="form-group">
-                <label className="form-label">ФИО сотрудника</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  placeholder="Иван Иванов"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  required
-                />
-              </div>
+              {!editingId && (
+                <div style={{ display: 'flex', background: 'var(--border-color)', borderRadius: '10px', padding: '3px', marginBottom: '5px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setCreationMode('single')}
+                    style={{
+                      flex: 1,
+                      background: creationMode === 'single' ? 'var(--bg-sidebar)' : 'none',
+                      border: 'none',
+                      color: creationMode === 'single' ? 'var(--text-primary)' : 'var(--text-secondary)',
+                      padding: '8px',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      transition: 'all 0.2s',
+                    }}
+                  >
+                    Один сотрудник
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCreationMode('bulk')}
+                    style={{
+                      flex: 1,
+                      background: creationMode === 'bulk' ? 'var(--bg-sidebar)' : 'none',
+                      border: 'none',
+                      color: creationMode === 'bulk' ? 'var(--text-primary)' : 'var(--text-secondary)',
+                      padding: '8px',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      transition: 'all 0.2s',
+                    }}
+                  >
+                    Оптом (Мультисоздание)
+                  </button>
+                </div>
+              )}
+
+              {creationMode === 'single' || editingId ? (
+                <div className="form-group">
+                  <label className="form-label">ФИО сотрудника</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="Иван Иванов"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    required
+                  />
+                </div>
+              ) : (
+                <div className="form-group">
+                  <label className="form-label">Список ФИО (по одному сотруднику в строке)</label>
+                  <textarea
+                    className="form-input"
+                    rows={5}
+                    style={{ fontFamily: 'inherit', resize: 'vertical' }}
+                    placeholder="Иван Иванов&#10;Петр Петров&#10;Каждый сотрудник с новой строки"
+                    value={bulkNames}
+                    onChange={(e) => setBulkNames(e.target.value)}
+                    required
+                  />
+                </div>
+              )}
 
               <div className="form-group">
                 <label className="form-label">B2B Компания</label>
@@ -1427,6 +1706,31 @@ export default function ClientsPage() {
               </div>
             ) : null}
           </div>
+        </div>
+      )}
+
+      {/* Панель групповых операций */}
+      {selectedIds.length > 0 && (
+        <div className="bulk-bar-floating">
+          <div className="bulk-text">
+            Выбрано: <span className="bulk-count">{selectedIds.length}</span>
+          </div>
+          <button 
+            type="button" 
+            className="btn-bulk-action btn-bulk-download" 
+            onClick={() => handleExportZIP()}
+          >
+            <Download size={14} />
+            <span>Скачать выбранные (ZIP)</span>
+          </button>
+          <button 
+            type="button" 
+            className="btn-bulk-action btn-bulk-delete" 
+            onClick={handleBulkDelete}
+          >
+            <Trash2 size={14} />
+            <span>Удалить выбранных</span>
+          </button>
         </div>
       )}
 

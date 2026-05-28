@@ -77,6 +77,7 @@ export async function POST(req: Request) {
 
     const {
       name,
+      names, // Опциональный массив или multiline строка с именами для мультисоздания
       companyId,
       templateId,
       customTrafficLimitGB,
@@ -87,14 +88,26 @@ export async function POST(req: Request) {
     } = await req.json();
 
     // Валидация входных данных
-    if (!name || name.trim() === '') {
-      return NextResponse.json({ success: false, error: 'ФИО сотрудника обязательно' }, { status: 400 });
-    }
     if (!companyId) {
       return NextResponse.json({ success: false, error: 'Привязка к компании обязательна' }, { status: 400 });
     }
     if (!templateId) {
       return NextResponse.json({ success: false, error: 'Выбор шаблона VPN обязателен' }, { status: 400 });
+    }
+
+    const namesArray: string[] = [];
+    if (names) {
+      if (Array.isArray(names)) {
+        namesArray.push(...names.map(n => String(n).trim()).filter(Boolean));
+      } else {
+        namesArray.push(...String(names).split('\n').map(n => n.trim()).filter(Boolean));
+      }
+    } else if (name && name.trim() !== '') {
+      namesArray.push(name.trim());
+    }
+
+    if (namesArray.length === 0) {
+      return NextResponse.json({ success: false, error: 'ФИО сотрудника(ов) обязательно' }, { status: 400 });
     }
 
     // Получаем компанию и шаблон
@@ -107,12 +120,6 @@ export async function POST(req: Request) {
     if (!template) {
       return NextResponse.json({ success: false, error: 'Шаблон не найден' }, { status: 404 });
     }
-
-    // Генерируем UUID и токены для VPN-подключения
-    const clientUuid = crypto.randomUUID();
-    const subToken = crypto.randomUUID();
-    const cleanName = getCleanLatinName(name);
-    const clientEmail = `${cleanName}_${clientUuid.slice(0, 8)}@btv.vpn`; // Уникальный email-id для 3XUI с транслитерацией имени
 
     // Вычисляем лимиты с учетом кастомных переопределений
     const trafficLimitGB = customTrafficLimitGB !== undefined && customTrafficLimitGB !== null
@@ -161,86 +168,119 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: 'В выбранном шаблоне нет активных инбаундов 3XUI' }, { status: 400 });
     }
 
-    // --- Регистрация клиента на 3XUI сервере ---
-    const addedInboundIds: number[] = [];
-    let isSuccess = true;
-    let apiErrorMsg = '';
+    const createdClients = [];
+    const failedNames = [];
+    let lastError = '';
 
-    for (const inboundId of inboundIds) {
-      try {
-        const added = await xuiAddClient(inboundId, {
-          id: clientUuid,
-          email: clientEmail,
-          limitIp: limitIp,
-          totalGB: Number(trafficBytesLimit), // В 3XUI отправляется число байт
-          expiryTime: expiryTimeMs,
-          enable: true,
-          flow: flow,
-          tgId: tgId,
-        });
+    for (const clientName of namesArray) {
+      const clientUuid = crypto.randomUUID();
+      const subToken = crypto.randomUUID();
+      const cleanName = getCleanLatinName(clientName);
+      const clientEmail = `${cleanName}_${clientUuid.slice(0, 8)}@btv.vpn`; // Уникальный email-id для 3XUI с транслитерацией имени
 
-        if (added) {
-          addedInboundIds.push(inboundId);
-        } else {
+      // --- Регистрация клиента на 3XUI сервере ---
+      const addedInboundIds: number[] = [];
+      let isSuccess = true;
+      let apiErrorMsg = '';
+
+      for (const inboundId of inboundIds) {
+        try {
+          const added = await xuiAddClient(inboundId, {
+            id: clientUuid,
+            email: clientEmail,
+            limitIp: limitIp,
+            totalGB: Number(trafficBytesLimit), // В 3XUI отправляется число байт
+            expiryTime: expiryTimeMs,
+            enable: true,
+            flow: flow,
+            tgId: tgId,
+          });
+
+          if (added) {
+            addedInboundIds.push(inboundId);
+          } else {
+            isSuccess = false;
+            apiErrorMsg = `Панель 3XUI отклонила добавление в Inbound ID ${inboundId}`;
+            break;
+          }
+        } catch (err: any) {
           isSuccess = false;
-          apiErrorMsg = `Панель 3XUI отклонила добавление в Inbound ID ${inboundId}`;
+          apiErrorMsg = `Ошибка подключения к API 3XUI: ${err.message}`;
           break;
         }
-      } catch (err: any) {
-        isSuccess = false;
-        apiErrorMsg = `Ошибка подключения к API 3XUI: ${err.message}`;
-        break;
       }
-    }
 
-    // --- Откат изменений при сбое транзакции ---
-    if (!isSuccess) {
-      console.warn(`Failure creating client in 3XUI. Rolling back for added inbounds: [${addedInboundIds.join(', ')}]...`);
-      for (const addedId of addedInboundIds) {
-        try {
-          await xuiDeleteClient(addedId, clientEmail);
-        } catch (rollbackErr: any) {
-          console.error(`Rollback failed for Inbound ID ${addedId}:`, rollbackErr.message);
+      // --- Откат изменений при сбое транзакции для конкретного клиента ---
+      if (!isSuccess) {
+        console.warn(`Failure creating client "${clientName}" in 3XUI. Rolling back for added inbounds: [${addedInboundIds.join(', ')}]...`);
+        for (const addedId of addedInboundIds) {
+          try {
+            await xuiDeleteClient(addedId, clientEmail);
+          } catch (rollbackErr: any) {
+            console.error(`Rollback failed for Inbound ID ${addedId}:`, rollbackErr.message);
+          }
+        }
+        failedNames.push({ name: clientName, error: apiErrorMsg });
+        lastError = apiErrorMsg;
+        continue;
+      }
+
+      // --- Запись в локальную базу данных Postgres ---
+      try {
+        const client = await prisma.client.create({
+          data: {
+            name: clientName,
+            email: clientEmail,
+            vpnUuid: clientUuid,
+            subscriptionToken: subToken,
+            trafficLimitGB: customTrafficLimitGB !== undefined && customTrafficLimitGB !== null ? Number(customTrafficLimitGB) : null,
+            limitIp: customLimitIp !== undefined && customLimitIp !== null ? Number(customLimitIp) : null,
+            expiresAt: expiresAt,
+            flow: customFlow !== undefined && customFlow !== null ? customFlow.trim() : null,
+            tgId: customTgId !== undefined && customTgId !== null ? customTgId.trim() : null,
+            companyId: companyId,
+            templateId: templateId,
+          },
+        });
+
+        createdClients.push({
+          ...client,
+          usedTrafficBytes: client.usedTrafficBytes.toString(),
+        });
+
+        // Логируем аудит
+        await prisma.auditLog.create({
+          data: {
+            action: 'CREATE_CLIENT',
+            details: `Создан VPN-клиент: ${client.name} (Компания: ${company.name}, Шаблон: ${template.name})`,
+            adminId: session.userId,
+          },
+        });
+      } catch (dbErr: any) {
+        console.error(`Failed to save client "${clientName}" in local Postgres:`, dbErr.message);
+        failedNames.push({ name: clientName, error: 'Ошибка записи в базу данных' });
+        lastError = 'Ошибка записи в базу данных';
+        // Откат с 3XUI, так как в локальной базе сохранить не удалось
+        for (const addedId of addedInboundIds) {
+          try {
+            await xuiDeleteClient(addedId, clientEmail);
+          } catch (e) {}
         }
       }
-      return NextResponse.json({ success: false, error: `Сбой создания клиента на сервере VPN: ${apiErrorMsg}` }, { status: 502 });
     }
 
-    // --- Запись в локальную базу данных Postgres ---
-    const client = await prisma.client.create({
-      data: {
-        name: name.trim(),
-        email: clientEmail,
-        vpnUuid: clientUuid,
-        subscriptionToken: subToken,
-        trafficLimitGB: customTrafficLimitGB !== undefined && customTrafficLimitGB !== null ? Number(customTrafficLimitGB) : null,
-        limitIp: customLimitIp !== undefined && customLimitIp !== null ? Number(customLimitIp) : null,
-        expiresAt: expiresAt,
-        flow: customFlow !== undefined && customFlow !== null ? customFlow.trim() : null,
-        tgId: customTgId !== undefined && customTgId !== null ? customTgId.trim() : null,
-        companyId: companyId,
-        templateId: templateId,
-      },
-    });
-
-    // Логируем аудит
-    await prisma.auditLog.create({
-      data: {
-        action: 'CREATE_CLIENT',
-        details: `Создан VPN-клиент: ${client.name} (Компания: ${company.name}, Шаблон: ${template.name})`,
-        adminId: session.userId,
-      },
-    });
+    if (createdClients.length === 0 && failedNames.length > 0) {
+      return NextResponse.json({ success: false, error: `Сбой создания клиентов: ${lastError}`, failed: failedNames }, { status: 502 });
+    }
 
     return NextResponse.json({
       success: true,
-      client: {
-        ...client,
-        usedTrafficBytes: client.usedTrafficBytes.toString(),
-      },
+      createdCount: createdClients.length,
+      clients: createdClients,
+      failed: failedNames,
     });
   } catch (error: any) {
-    console.error('Error creating client:', error);
-    return NextResponse.json({ success: false, error: 'Ошибка при создании клиента' }, { status: 500 });
+    console.error('Error creating client(s):', error);
+    return NextResponse.json({ success: false, error: 'Ошибка при создании клиента(ов)' }, { status: 500 });
   }
 }
