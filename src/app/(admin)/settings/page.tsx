@@ -22,9 +22,10 @@ export default function SettingsPage() {
   const [success, setSuccess] = useState<string | null>(null);
 
   // Поля настроек
-  const [xuiApiUrl, setXuiApiUrl] = useState('');
-  const [xuiUsername, setXuiUsername] = useState('');
-  const [xuiPassword, setXuiPassword] = useState('');
+  const [xuiScheme, setXuiScheme] = useState('http');
+  const [xuiAddress, setXuiAddress] = useState('localhost');
+  const [xuiPort, setXuiPort] = useState('2053');
+  const [xuiBasePath, setXuiBasePath] = useState('/');
   const [xuiApiToken, setXuiApiToken] = useState('');
   const [btwSupportLink, setBtwSupportLink] = useState('');
   const [appPanelUrl, setAppPanelUrl] = useState('');
@@ -34,7 +35,10 @@ export default function SettingsPage() {
   const [tgAdminChatIds, setTgAdminChatIds] = useState('');
   const [syncInterval, setSyncInterval] = useState('15');
 
-
+  // Состояние проверки связи
+  const [isTesting, setIsTesting] = useState(false);
+  const [testError, setTestError] = useState<string | null>(null);
+  const [testSuccess, setTestSuccess] = useState<string | null>(null);
 
   // Загрузить текущие настройки
   useEffect(() => {
@@ -45,9 +49,10 @@ export default function SettingsPage() {
           const data = await res.json();
           const s = data.settings || {};
 
-          setXuiApiUrl(s.xui_api_url || '');
-          setXuiUsername(s.xui_username || '');
-          setXuiPassword(s.xui_password || ''); // Для безопасности можно скрыть, но у нас админ-панель
+          setXuiScheme(s.xui_scheme || 'http');
+          setXuiAddress(s.xui_address || '');
+          setXuiPort(s.xui_port || '2053');
+          setXuiBasePath(s.xui_base_path || '/');
           setXuiApiToken(s.xui_api_token || '');
           setBtwSupportLink(s.btw_support_link || '');
           setAppPanelUrl(s.app_panel_url || '');
@@ -55,8 +60,6 @@ export default function SettingsPage() {
           setTgBotToken(s.tg_bot_token || '');
           setTgAdminChatIds(s.tg_admin_chat_ids || '');
           setSyncInterval(s.sync_interval_minutes || '15');
-
-
         }
       } catch (e) {
         console.error('Failed to load settings:', e);
@@ -77,9 +80,10 @@ export default function SettingsPage() {
     setSuccess(null);
 
     const payload = {
-      xui_api_url: xuiApiUrl.trim(),
-      xui_username: xuiUsername.trim(),
-      xui_password: xuiPassword,
+      xui_scheme: xuiScheme.trim(),
+      xui_address: xuiAddress.trim(),
+      xui_port: xuiPort.trim(),
+      xui_base_path: xuiBasePath.trim(),
       xui_api_token: xuiApiToken.trim(),
       btw_support_link: btwSupportLink.trim(),
       app_panel_url: appPanelUrl.trim(),
@@ -107,6 +111,41 @@ export default function SettingsPage() {
       setError('Ошибка сети. Проверьте соединение с сервером.');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  // Проверить связь с 3XUI
+  const handleTestConnection = async () => {
+    if (isTesting) return;
+    setIsTesting(true);
+    setTestError(null);
+    setTestSuccess(null);
+
+    const payload = {
+      scheme: xuiScheme.trim(),
+      address: xuiAddress.trim(),
+      port: xuiPort.trim(),
+      basePath: xuiBasePath.trim(),
+      apiToken: xuiApiToken.trim(),
+    };
+
+    try {
+      const res = await fetch('/api/admin/settings/test-connection', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setTestSuccess(data.message || 'Соединение успешно проверено!');
+      } else {
+        setTestError(data.error || 'Не удалось подключиться к панели 3XUI.');
+      }
+    } catch (err) {
+      setTestError('Ошибка сети при проверке связи. Убедитесь, что сервер доступен.');
+    } finally {
+      setIsTesting(false);
     }
   };
 
@@ -252,6 +291,33 @@ export default function SettingsPage() {
           color: #fff;
         }
 
+        .btn-test-connection {
+          background: rgba(6, 182, 212, 0.1);
+          border: 1px solid rgba(6, 182, 212, 0.3);
+          color: #06b6d4;
+          padding: 12px 18px;
+          border-radius: 10px;
+          font-size: 13px;
+          font-weight: 600;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          transition: all 0.2s;
+        }
+
+        .btn-test-connection:hover {
+          background: rgba(6, 182, 212, 0.2);
+          border-color: #06b6d4;
+          color: #fff;
+        }
+
+        .btn-test-connection:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+
         .alert-error {
           background: rgba(239, 68, 68, 0.1);
           border: 1px solid rgba(239, 68, 68, 0.2);
@@ -304,57 +370,106 @@ export default function SettingsPage() {
             <span>Панель 3XUI (Нидерланды BTW Главный)</span>
           </div>
 
-          <div className="form-group">
-            <label className="form-label">API URL Панели</label>
-            <input
-              type="url"
-              className="form-input"
-              placeholder="http://your-xui-main-panel-ip:2053"
-              value={xuiApiUrl}
-              onChange={(e) => setXuiApiUrl(e.target.value)}
-              required
-            />
-            <span className="help-text">
-              Укажите IP/домен и порт главного сервера 3XUI. Ссылка должна быть доступна с сервера панели.
-            </span>
+          <div className="form-grid">
+            <div className="form-group">
+              <label className="form-label">Схема (Протокол)</label>
+              <select
+                className="form-input"
+                value={xuiScheme}
+                onChange={(e) => setXuiScheme(e.target.value)}
+                style={{ appearance: 'none', background: 'rgba(0,0,0,0.3) url("data:image/svg+xml;utf8,<svg fill=\'%23ffffff\' height=\'24\' viewBox=\'0 0 24 24\' width=\'24\' xmlns=\'http://www.w3.org/2000/svg\'><path d=\'M7 10l5 5 5-5z\'/><path d=\'M0 0h24v24H0z\' fill=\'none\'/></svg>") no-repeat right 12px center' }}
+              >
+                <option value="http" style={{ background: '#111827', color: '#fff' }}>http</option>
+                <option value="https" style={{ background: '#111827', color: '#fff' }}>https</option>
+              </select>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Адрес / IP сервера</label>
+              <input
+                type="text"
+                className="form-input"
+                placeholder="nl.vsubbotin.com"
+                value={xuiAddress}
+                onChange={(e) => setXuiAddress(e.target.value)}
+                required
+              />
+            </div>
           </div>
 
           <div className="form-grid">
             <div className="form-group">
-              <label className="form-label">Имя пользователя (Логин)</label>
+              <label className="form-label">Порт</label>
               <input
                 type="text"
                 className="form-input"
-                placeholder="admin"
-                value={xuiUsername}
-                onChange={(e) => setXuiUsername(e.target.value)}
+                placeholder="30530"
+                value={xuiPort}
+                onChange={(e) => setXuiPort(e.target.value)}
+                required
               />
             </div>
 
             <div className="form-group">
-              <label className="form-label">Пароль 3XUI</label>
+              <label className="form-label">Базовый путь (Base Path)</label>
               <input
-                type="password"
+                type="text"
                 className="form-input"
-                placeholder="Ваш пароль 3XUI"
-                value={xuiPassword}
-                onChange={(e) => setXuiPassword(e.target.value)}
+                placeholder="/mBywdOSDVfbWb3Hp6x"
+                value={xuiBasePath}
+                onChange={(e) => setXuiBasePath(e.target.value)}
+                required
               />
+              <span className="help-text">
+                Если панель защищена путем (например, /mBywdOSDVfbWb3Hp6x), укажите его. Иначе оставьте /
+              </span>
             </div>
           </div>
 
-          <div className="form-group" style={{ marginTop: '10px' }}>
-            <label className="form-label">API Токен 3XUI (Bearer token — Рекомендуется)</label>
+          <div className="form-group">
+            <label className="form-label">API Токен 3XUI (Bearer token)</label>
             <input
               type="text"
               className="form-input"
-              placeholder="Вставьте токен, например: api_token_..."
+              placeholder="74Wq3lsLAiPrkhElAELYtxdpawxyvbZfcuEPk2GQZS6AQvkz"
               value={xuiApiToken}
               onChange={(e) => setXuiApiToken(e.target.value)}
+              required
             />
             <span className="help-text">
-              <strong>Рекомендуется:</strong> Если вы используете современную версию 3XUI с поддержкой токенов (Settings → Security → API Tokens), вставьте токен сюда. Это полностью отменяет необходимость логина/пароля, убирает сессионные куки и делает соединение на 100% стабильным!
+              API-токен генерируется в панели 3XUI (Settings → Security → API Tokens). Авторизация по токенам обходит сессионные куки и CSRF, делая связь на 100% стабильной.
             </span>
+          </div>
+
+          {/* Результаты тестирования связи локально в блоке */}
+          {testError && (
+            <div className="alert-error" style={{ marginTop: '10px' }}>
+              <AlertTriangle size={16} />
+              <span>{testError}</span>
+            </div>
+          )}
+
+          {testSuccess && (
+            <div className="alert-success" style={{ marginTop: '10px' }}>
+              <CheckCircle size={16} />
+              <span>{testSuccess}</span>
+            </div>
+          )}
+
+          <div style={{ display: 'flex', justifyContent: 'flex-start', marginTop: '10px' }}>
+            <button
+              type="button"
+              className="btn-test-connection"
+              onClick={handleTestConnection}
+              disabled={isTesting}
+            >
+              {isTesting ? (
+                <Loader size={16} className="spinner" />
+              ) : (
+                <Server size={16} />
+              )}
+              <span>{isTesting ? 'Проверка...' : 'Проверить связь'}</span>
+            </button>
           </div>
         </div>
 

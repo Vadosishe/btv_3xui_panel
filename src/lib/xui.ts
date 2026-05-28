@@ -3,15 +3,8 @@ import prisma from './prisma';
 // Структура учетных данных 3XUI
 interface XuiConfig {
   apiUrl: string;
-  username: string;
-  password: string;
   apiToken: string;
 }
-
-// Кэш сессионной куки для предотвращения повторной авторизации
-let cachedCookie: string | null = null;
-let lastLoginTime = 0;
-const SESSION_TTL = 20 * 60 * 1000; // 20 минут TTL сессии
 
 /**
  * Получить настройки 3XUI из базы данных (AppSetting) или из окружения
@@ -20,85 +13,36 @@ async function getXuiConfig(): Promise<XuiConfig> {
   const settings = await prisma.appSetting.findMany();
   const settingsMap = new Map(settings.map(s => [s.key, s.value]));
 
-  const apiUrl = settingsMap.get('xui_api_url') || process.env.XUI_API_URL || 'http://localhost:2053';
-  const username = settingsMap.get('xui_username') || process.env.XUI_USERNAME || 'admin';
-  const password = settingsMap.get('xui_password') || process.env.XUI_PASSWORD || 'admin';
+  const scheme = settingsMap.get('xui_scheme') || 'http';
+  const address = settingsMap.get('xui_address') || 'localhost';
+  const port = settingsMap.get('xui_port') || '2053';
+  let basePath = settingsMap.get('xui_base_path') || '/';
   const apiToken = settingsMap.get('xui_api_token') || process.env.XUI_API_TOKEN || '';
 
-  // Удаляем завершающий слеш из URL
+  // Нормализуем base path
+  if (!basePath.startsWith('/')) {
+    basePath = '/' + basePath;
+  }
+  if (basePath.endsWith('/') && basePath.length > 1) {
+    basePath = basePath.slice(0, -1);
+  }
+
+  // Собираем apiUrl
+  const apiUrl = `${scheme}://${address}:${port}${basePath === '/' ? '' : basePath}`;
+
   return {
-    apiUrl: apiUrl.endsWith('/') ? apiUrl.slice(0, -1) : apiUrl,
-    username,
-    password,
+    apiUrl,
     apiToken,
   };
 }
 
 /**
- * Выполнить вход в панель 3XUI и получить сессионную куку
- */
-export async function xuiLogin(force = false): Promise<string> {
-  const now = Date.now();
-  if (cachedCookie && !force && (now - lastLoginTime < SESSION_TTL)) {
-    return cachedCookie;
-  }
-
-  const config = await getXuiConfig();
-  const loginUrl = `${config.apiUrl}/login`;
-
-  try {
-    const params = new URLSearchParams();
-    params.append('username', config.username);
-    params.append('password', config.password);
-
-    const res = await fetch(loginUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Accept': 'application/json',
-      },
-      body: params,
-      cache: 'no-store',
-    });
-
-    if (!res.ok) {
-      throw new Error(`3XUI login failed: Status ${res.status}`);
-    }
-
-    const json = await res.json();
-    if (!json.success) {
-      throw new Error(`3XUI login unsuccessful: ${json.msg || 'Unknown error'}`);
-    }
-
-    // Извлекаем куку session из заголовков set-cookie
-    const setCookie = res.headers.get('set-cookie');
-    if (!setCookie) {
-      throw new Error('3XUI login failed: No set-cookie header received');
-    }
-
-    // Ищем куку session=...
-    const match = setCookie.match(/session=([^;]+)/);
-    if (!match) {
-      throw new Error('3XUI login failed: Session cookie not found in set-cookie header');
-    }
-
-    cachedCookie = `session=${match[1]}`;
-    lastLoginTime = now;
-    return cachedCookie;
-  } catch (error: any) {
-    console.error('Error logging in to 3XUI API:', error.message);
-    throw error;
-  }
-}
-
-/**
- * Универсальный метод отправки запросов к API 3XUI с авто-логином
+ * Универсальный метод отправки запросов к API 3XUI с Bearer авторизацией
  */
 async function xuiRequest<T = any>(
   path: string,
   method: 'GET' | 'POST',
-  body?: any,
-  isRetry = false
+  body?: any
 ): Promise<T> {
   const config = await getXuiConfig();
   const url = `${config.apiUrl}${path}`;
@@ -110,10 +54,6 @@ async function xuiRequest<T = any>(
   if (config.apiToken) {
     // Токен-авторизация (Bearer Token) — не требует логина, сессий и обходит CSRF
     headers['Authorization'] = `Bearer ${config.apiToken}`;
-  } else {
-    // Традиционная сессионная кука
-    const cookie = await xuiLogin();
-    headers['Cookie'] = cookie;
   }
 
   if (body) {
@@ -127,13 +67,6 @@ async function xuiRequest<T = any>(
       body: body ? JSON.stringify(body) : undefined,
       cache: 'no-store',
     });
-
-    // Если получили 401/Unauthorized, возможно сессия истекла (актуально только для авторизации по кукам)
-    if (res.status === 401 && !isRetry && !config.apiToken) {
-      console.log('3XUI session expired (401), re-authenticating...');
-      await xuiLogin(true); // Форсируем логин
-      return xuiRequest(path, method, body, true); // Пробуем снова
-    }
 
     if (!res.ok) {
       throw new Error(`3XUI API error on ${path}: Status ${res.status}`);

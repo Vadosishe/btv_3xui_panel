@@ -40,14 +40,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     }
 
     // Дефолтный домен (хост главного сервера)
-    let defaultDomain = 'vpn.btw.com';
-    const xuiUrl = settingsMap.get('xui_api_url') || '';
-    if (xuiUrl) {
-      try {
-        const urlObj = new URL(xuiUrl);
-        defaultDomain = urlObj.hostname;
-      } catch (e) {}
-    }
+    const defaultDomain = settingsMap.get('xui_address') || 'vpn.btw.com';
 
     // Получаем инбаунды с 3XUI, чтобы спарсить Reality/TLS настройки и сгенерировать ссылки
     let configLinks: string[] = [];

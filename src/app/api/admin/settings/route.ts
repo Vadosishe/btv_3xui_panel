@@ -18,9 +18,10 @@ export async function GET() {
 
     // Добавим дефолтные значения для фронтенда, если их нет в БД
     const responseSettings = {
-      xui_api_url: settingsMap.xui_api_url || 'http://localhost:2053',
-      xui_username: settingsMap.xui_username || 'admin',
-      xui_password: settingsMap.xui_password || '',
+      xui_scheme: settingsMap.xui_scheme || 'http',
+      xui_address: settingsMap.xui_address || 'localhost',
+      xui_port: settingsMap.xui_port || '2053',
+      xui_base_path: settingsMap.xui_base_path || '/',
       xui_api_token: settingsMap.xui_api_token || '',
       btw_support_link: settingsMap.btw_support_link || 'https://t.me/btw_support_bot',
       app_panel_url: settingsMap.app_panel_url || process.env.NEXTAUTH_URL || 'http://localhost:3000',
