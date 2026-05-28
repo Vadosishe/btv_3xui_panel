@@ -1,7 +1,7 @@
-'use html';
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import {
   Users,
   Building2,
@@ -152,22 +152,11 @@ export default function DashboardPage() {
           setCompanies(processedCompanies);
         }
 
-        // Подгружаем лог аудита
-        const logRes = await fetch('/api/auth/me'); // Используем инфо о текущей сессии
-        if (logRes.ok) {
-          // Здесь для демонстрации просто возьмем последние логи
-          // В продакшене у нас будет полноценный эндпоинт, который мы напишем для страницы аудита
-          // А сейчас вызовем API получения логов
-          const logsResponse = await fetch('/api/admin/sync', { method: 'POST' }); // Логи о сбое/успехе
-          // Fetch audit logs
-          const realLogsRes = await fetch('/api/admin/sync'); // placeholder
-          // Напишем заглушку последних логов или загрузим их
-          setLogs([
-            { id: '1', action: 'CREATE_CLIENT', details: 'Добавлен клиент vpn_user_01 для компании Zapus Group', createdAt: new Date().toISOString() },
-            { id: '2', action: 'SYNC_TRAFFIC', details: 'Синхронизация трафика успешно завершена. Обновлено клиентов: 12', createdAt: new Date(Date.now() - 15 * 60 * 1000).toISOString() },
-            { id: '3', action: 'UPDATE_SETTINGS', details: 'Обновлены системные настройки панели', createdAt: new Date(Date.now() - 2 * 3600 * 1000).toISOString() },
-            { id: '4', action: 'CREATE_COMPANY', details: 'Создана компания Dental Stom', createdAt: new Date(Date.now() - 12 * 3600 * 1000).toISOString() },
-          ]);
+        // Подгружаем реальный лог аудита
+        const realLogsRes = await fetch('/api/admin/logs?limit=5');
+        if (realLogsRes.ok) {
+          const logsData = await realLogsRes.json();
+          setLogs(logsData.logs || []);
         }
       } catch (e) {
         console.error('Error loading dashboard data:', e);
@@ -197,6 +186,22 @@ export default function DashboardPage() {
     const bytes = BigInt(c.usedTrafficBytes);
     return bytes > max ? bytes : max;
   }, BigInt(1024 * 1024 * 1024)); // fallback 1GB
+
+  const getActionLabel = (action: string) => {
+    const labels: Record<string, string> = {
+      CREATE_CLIENT: 'Создан клиент',
+      DELETE_CLIENT: 'Удален клиент',
+      UPDATE_CLIENT: 'Обновлен клиент',
+      CREATE_COMPANY: 'Создана компания',
+      DELETE_COMPANY: 'Удалена компания',
+      UPDATE_COMPANY: 'Обновлена компания',
+      SYNC_TRAFFIC: 'Синхронизация трафика',
+      UPDATE_SETTINGS: 'Настройки сохранены',
+      ADMIN_LOGIN: 'Вход в панель',
+      AUTO_SEED_ADMIN: 'Инициализация системы',
+    };
+    return labels[action] || action;
+  };
 
   return (
     <div className="dashboard-grid">
@@ -250,14 +255,14 @@ export default function DashboardPage() {
         .stat-val {
           font-size: 26px;
           font-weight: 800;
-          color: #fff;
+          color: var(--text-primary);
           margin-top: 5px;
         }
 
         .stat-title {
           font-size: 12px;
           font-weight: 600;
-          color: #9ca3af;
+          color: var(--text-muted);
           text-transform: uppercase;
           letter-spacing: 0.5px;
         }
@@ -277,7 +282,7 @@ export default function DashboardPage() {
         .panel-title {
           font-size: 16px;
           font-weight: 700;
-          color: #f3f4f6;
+          color: var(--text-primary);
           margin-bottom: 20px;
           display: flex;
           align-items: center;
@@ -286,7 +291,7 @@ export default function DashboardPage() {
 
         /* Кастомный SVG График */
         .chart-container {
-          background: rgba(15, 18, 25, 0.4);
+          background: var(--bg-card);
           border-radius: var(--radius-md);
           padding: 20px;
           display: flex;
@@ -304,7 +309,7 @@ export default function DashboardPage() {
         .chart-label {
           width: 110px;
           font-weight: 600;
-          color: #e5e7eb;
+          color: var(--text-secondary);
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
@@ -313,7 +318,7 @@ export default function DashboardPage() {
         .chart-bar-bg {
           flex-grow: 1;
           height: 12px;
-          background: rgba(255, 255, 255, 0.03);
+          background: var(--border-color);
           border-radius: 6px;
           overflow: hidden;
         }
@@ -329,19 +334,19 @@ export default function DashboardPage() {
           width: 75px;
           text-align: right;
           font-weight: 700;
-          color: #f3f4f6;
+          color: var(--text-primary);
         }
 
         /* Стили логов */
         .log-list {
           display: flex;
           flex-direction: column;
-          gap: 15px;
+          gap: 12px;
         }
 
         .log-item {
-          background: rgba(255, 255, 255, 0.02);
-          border: 1px solid rgba(255, 255, 255, 0.04);
+          background: var(--border-color);
+          border: 1px solid var(--border-color);
           border-radius: 10px;
           padding: 12px 15px;
           font-size: 12px;
@@ -354,21 +359,21 @@ export default function DashboardPage() {
         .log-header {
           display: flex;
           justify-content: space-between;
-          color: #9ca3af;
+          color: var(--text-muted);
         }
 
         .log-action {
           font-weight: 700;
-          color: #06b6d4;
+          color: var(--accent-cyan);
         }
 
         .log-details {
-          color: #e5e7eb;
+          color: var(--text-secondary);
         }
 
         .no-data {
           font-size: 13px;
-          color: #6b7280;
+          color: var(--text-muted);
           text-align: center;
           padding: 40px 0;
         }
@@ -504,22 +509,31 @@ export default function DashboardPage() {
 
         {/* Последние логи аудита */}
         <div className="glass-panel" style={{ padding: '25px' }}>
-          <div className="panel-title">
-            <History size={18} style={{ color: '#a855f7' }} />
-            <span>Недавние события в системе</span>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            <div className="panel-title" style={{ marginBottom: 0 }}>
+              <History size={18} style={{ color: '#a855f7' }} />
+              <span>Недавние события в системе</span>
+            </div>
+            <Link href="/audit" style={{ fontSize: '12px', color: 'var(--accent-cyan)', fontWeight: 600 }}>
+              Все логи →
+            </Link>
           </div>
 
+          {logs.length > 0 ? (
           <div className="log-list">
             {logs.map((log) => (
               <div key={log.id} className="log-item">
                 <div className="log-header">
-                  <span className="log-action">{log.action}</span>
+                  <span className="log-action">{getActionLabel(log.action)}</span>
                   <span>{new Date(log.createdAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</span>
                 </div>
                 <div className="log-details">{log.details}</div>
               </div>
             ))}
           </div>
+          ) : (
+            <div className="no-data">Нет последних событий. Начните работу в панели!</div>
+          )}
         </div>
       </div>
     </div>

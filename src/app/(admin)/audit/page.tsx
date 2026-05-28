@@ -1,4 +1,3 @@
-'use html';
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -134,25 +133,25 @@ export default function AuditLogsPage() {
 
         .search-input {
           width: 100%;
-          background: rgba(15, 18, 25, 0.4);
-          border: 1px solid rgba(255, 255, 255, 0.05);
+          background: var(--bg-card);
+          border: 1px solid var(--border-color);
           border-radius: 10px;
           padding: 10px 15px 10px 45px;
-          color: #fff;
+          color: var(--text-primary);
           font-size: 14px;
           transition: all 0.2s;
         }
 
         .search-input:focus {
-          border-color: #06b6d4;
+          border-color: var(--accent-cyan);
         }
 
         .filter-select {
-          background: rgba(15, 18, 25, 0.4);
-          border: 1px solid rgba(255, 255, 255, 0.05);
+          background: var(--bg-card);
+          border: 1px solid var(--border-color);
           border-radius: 10px;
           padding: 10px 15px;
-          color: #e5e7eb;
+          color: var(--text-primary);
           font-size: 13px;
           min-width: 180px;
           cursor: pointer;
@@ -172,8 +171,8 @@ export default function AuditLogsPage() {
 
         .logs-table th {
           padding: 12px 16px;
-          border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-          color: #9ca3af;
+          border-bottom: 1px solid var(--border-color);
+          color: var(--text-muted);
           font-weight: 600;
           text-transform: uppercase;
           font-size: 11px;
@@ -182,13 +181,13 @@ export default function AuditLogsPage() {
 
         .logs-table td {
           padding: 16px;
-          border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-          color: #e5e7eb;
+          border-bottom: 1px solid var(--border-color);
+          color: var(--text-secondary);
           vertical-align: middle;
         }
 
         .logs-table tr:hover {
-          background: rgba(255, 255, 255, 0.01);
+          background: var(--bg-card-hover);
         }
 
         /* Бейджи действий */
@@ -252,16 +251,16 @@ export default function AuditLogsPage() {
         .admin-avatar {
           width: 24px;
           height: 24px;
-          background: rgba(255,255,255,0.06);
+          background: var(--border-color);
           border-radius: 50%;
           display: flex;
           align-items: center;
           justify-content: center;
-          color: #9ca3af;
+          color: var(--text-muted);
         }
 
         .admin-email {
-          color: #6b7280;
+          color: var(--text-muted);
           font-size: 11px;
           margin-top: 2px;
         }
@@ -270,13 +269,13 @@ export default function AuditLogsPage() {
           display: flex;
           align-items: center;
           gap: 6px;
-          color: #9ca3af;
+          color: var(--text-muted);
         }
 
         .no-logs {
           padding: 60px 0;
           text-align: center;
-          color: #6b7280;
+          color: var(--text-muted);
         }
 
         .spinner { animation: spin 1s linear infinite; }

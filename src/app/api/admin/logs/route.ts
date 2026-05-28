@@ -1,15 +1,19 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, NextRequest } from 'next/server';
 import prisma from '@/lib/prisma';
 import { getSession } from '@/lib/auth';
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
     const session = await getSession();
     if (!session) {
       return NextResponse.json({ success: false, error: 'Не авторизован' }, { status: 401 });
     }
 
-    // Выгружаем последние 200 логов аудита
+    const { searchParams } = new URL(req.url);
+    const limitParam = searchParams.get('limit');
+    const take = limitParam ? Math.min(parseInt(limitParam, 10) || 200, 200) : 200;
+
+    // Выгружаем последние логи аудита
     const logs = await prisma.auditLog.findMany({
       include: {
         admin: {
@@ -22,7 +26,7 @@ export async function GET() {
       orderBy: {
         createdAt: 'desc',
       },
-      take: 200,
+      take,
     });
 
     return NextResponse.json({ success: true, logs });

@@ -1,4 +1,3 @@
-'use html';
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -346,25 +345,25 @@ export default function ClientsPage() {
 
         .search-input {
           width: 100%;
-          background: rgba(15, 18, 25, 0.4);
-          border: 1px solid rgba(255, 255, 255, 0.05);
+          background: var(--bg-card);
+          border: 1px solid var(--border-color);
           border-radius: 10px;
           padding: 10px 15px 10px 45px;
-          color: #fff;
+          color: var(--text-primary);
           font-size: 14px;
           transition: all 0.2s;
         }
 
         .search-input:focus {
-          border-color: #06b6d4;
+          border-color: var(--accent-cyan);
         }
 
         .filter-select {
-          background: rgba(15, 18, 25, 0.4);
-          border: 1px solid rgba(255, 255, 255, 0.05);
+          background: var(--bg-card);
+          border: 1px solid var(--border-color);
           border-radius: 10px;
           padding: 10px 15px;
-          color: #e5e7eb;
+          color: var(--text-primary);
           font-size: 13px;
           min-width: 150px;
           cursor: pointer;
@@ -479,12 +478,12 @@ export default function ClientsPage() {
         .client-title {
           font-size: 15px;
           font-weight: 700;
-          color: #f3f4f6;
+          color: var(--text-primary);
         }
 
         .client-email {
           font-size: 11px;
-          color: #6b7280;
+          color: var(--text-muted);
           margin-top: 2px;
         }
 
@@ -529,12 +528,12 @@ export default function ClientsPage() {
         .limit-val {
           font-size: 12px;
           font-weight: 700;
-          color: #e5e7eb;
+          color: var(--text-primary);
         }
 
         .limit-lbl {
           font-size: 9px;
-          color: #6b7280;
+          color: var(--text-muted);
           text-transform: uppercase;
         }
 
@@ -616,19 +615,19 @@ export default function ClientsPage() {
           width: 32px;
           height: 32px;
           border-radius: 8px;
-          border: 1px solid rgba(255, 255, 255, 0.05);
+          border: 1px solid var(--border-color);
           display: flex;
           align-items: center;
           justify-content: center;
           cursor: pointer;
-          color: #9ca3af;
-          background: rgba(255, 255, 255, 0.02);
+          color: var(--text-muted);
+          background: var(--border-color);
           transition: all 0.2s;
         }
 
         .action-icon:hover {
-          color: #fff;
-          background: rgba(255, 255, 255, 0.06);
+          color: var(--text-primary);
+          background: var(--border-hover);
         }
 
         .action-keys:hover {
