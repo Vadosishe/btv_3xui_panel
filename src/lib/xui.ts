@@ -126,26 +126,26 @@ export async function xuiAddClient(
     tgId?: string;
   }
 ): Promise<boolean> {
-  // Настройки клиента
+  // Настройки клиента для 3XUI Merlin
   const clientPayload = {
     id: client.id,
     email: client.email,
+    subId: client.id.replace(/-/g, '').slice(0, 16), // Генерируем 16 hex символов для subId
+    totalGB: client.totalGB ?? 0, // В байтах
+    expiryTime: client.expiryTime ?? 0, // Unix timestamp
+    tgId: client.tgId ? Number(client.tgId) : 0,
     limitIp: client.limitIp ?? 0,
-    totalGB: client.totalGB ?? 0, // В байтах в 3XUI, обработка должна быть на уровне вызова
-    expiryTime: client.expiryTime ?? 0, // Unix timestamp в миллисекундах
     enable: client.enable ?? true,
-    tgId: client.tgId ?? '',
-    subId: '',
-    flow: client.flow ?? '',
+    flow: client.flow || 'xtls-rprx-vision',
+    comment: 'BTV Client'
   };
 
-  // Формат MHSanaei 3x-ui: { inboundId, client }
   const body = {
-    inboundId: inboundId,
     client: clientPayload,
+    inboundIds: [inboundId],
   };
 
-  const data = await xuiRequest('/panel/api/inbounds/addClient', 'POST', body);
+  const data = await xuiRequest('/panel/api/clients/add', 'POST', body);
   return !!data.success;
 }
 
@@ -153,7 +153,11 @@ export async function xuiAddClient(
  * Удалить клиента из входящего подключения
  */
 export async function xuiDeleteClient(inboundId: number, clientUuid: string): Promise<boolean> {
-  const data = await xuiRequest(`/panel/api/inbounds/${inboundId}/delClient/${clientUuid}`, 'POST');
+  const email = clientUuid.includes('@')
+    ? clientUuid
+    : `client_${clientUuid.slice(0, 8)}@btw.vpn`;
+
+  const data = await xuiRequest(`/panel/api/clients/del/${email}`, 'POST');
   return !!data.success;
 }
 
@@ -177,21 +181,22 @@ export async function xuiUpdateClient(
   const clientPayload = {
     id: client.id,
     email: client.email,
-    limitIp: client.limitIp ?? 0,
+    subId: client.id.replace(/-/g, '').slice(0, 16),
     totalGB: client.totalGB ?? 0,
     expiryTime: client.expiryTime ?? 0,
+    tgId: client.tgId ? Number(client.tgId) : 0,
+    limitIp: client.limitIp ?? 0,
     enable: client.enable ?? true,
-    flow: client.flow ?? '',
-    tgId: client.tgId ?? '',
+    flow: client.flow || 'xtls-rprx-vision',
+    comment: 'BTV Client'
   };
 
-  // Формат MHSanaei 3x-ui: { inboundId, client }
   const body = {
-    inboundId: inboundId,
     client: clientPayload,
+    inboundIds: [inboundId],
   };
 
-  const data = await xuiRequest(`/panel/api/inbounds/updateClient/${clientUuid}`, 'POST', body);
+  const data = await xuiRequest(`/panel/api/clients/update/${client.email}`, 'POST', body);
   return !!data.success;
 }
 
@@ -200,7 +205,7 @@ export async function xuiUpdateClient(
  * Возвращает { id, inboundId, email, up, down, expiryTime, total }
  */
 export async function xuiGetClientTraffic(email: string): Promise<any | null> {
-  const data = await xuiRequest(`/panel/api/inbounds/getClientTraffics/${email}`, 'GET');
+  const data = await xuiRequest(`/panel/api/clients/traffic/${email}`, 'GET');
   if (data.success && data.obj) {
     return data.obj;
   }
@@ -336,7 +341,7 @@ export async function xuiGetNodeDomains(): Promise<Record<string, string>> {
  */
 export async function xuiGetOnlineClients(): Promise<string[]> {
   try {
-    const data = await xuiRequest('/panel/api/inbounds/onlines', 'POST');
+    const data = await xuiRequest('/panel/api/clients/onlines', 'POST');
     if (data.success && Array.isArray(data.obj)) {
       return data.obj.map((email: any) => String(email));
     }
