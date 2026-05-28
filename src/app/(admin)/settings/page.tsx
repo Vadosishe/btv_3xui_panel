@@ -38,6 +38,11 @@ export default function SettingsPage() {
   const [tgAdminChatIds, setTgAdminChatIds] = useState('');
   const [syncInterval, setSyncInterval] = useState('15');
 
+  // Новые параметры финансов и Telegram-бота
+  const [tgBotUsername, setTgBotUsername] = useState('');
+  const [btwSubscriptionPrice, setBtwSubscriptionPrice] = useState('100');
+  const [xuiNodeCosts, setXuiNodeCosts] = useState<Record<string, string>>({});
+
   // Состояние проверки связи
   const [isTesting, setIsTesting] = useState(false);
   const [testError, setTestError] = useState<string | null>(null);
@@ -92,6 +97,14 @@ export default function SettingsPage() {
           setTgBotToken(s.tg_bot_token || '');
           setTgAdminChatIds(s.tg_admin_chat_ids || '');
           setSyncInterval(s.sync_interval_minutes || '15');
+          
+          setTgBotUsername(s.xui_telegram_bot_username || '');
+          setBtwSubscriptionPrice(s.btw_subscription_price || '100');
+          try {
+            setXuiNodeCosts(JSON.parse(s.xui_node_costs || '{}'));
+          } catch (e) {
+            setXuiNodeCosts({});
+          }
         }
 
         if (adminsRes.ok) {
@@ -134,6 +147,10 @@ export default function SettingsPage() {
       tg_bot_token: tgBotToken.trim(),
       tg_admin_chat_ids: tgAdminChatIds.trim(),
       sync_interval_minutes: syncInterval.trim(),
+      
+      xui_telegram_bot_username: tgBotUsername.trim(),
+      btw_subscription_price: btwSubscriptionPrice.trim(),
+      xui_node_costs: JSON.stringify(xuiNodeCosts),
     };
 
     try {
@@ -584,22 +601,40 @@ export default function SettingsPage() {
         <div className="settings-section glass-panel">
           <div className="section-header">
             <LinkIcon size={18} className="section-icon" />
-            <span>Общие Бизнес-Настройки</span>
+            <span>Общие Бизнес-Настройки & Финансы</span>
           </div>
 
-          <div className="form-group">
-            <label className="form-label">URL-адрес этой Бизнес-Панели</label>
-            <input
-              type="url"
-              className="form-input"
-              placeholder="http://your-panel-domain-or-ip:3000"
-              value={appPanelUrl}
-              onChange={(e) => setAppPanelUrl(e.target.value)}
-              required
-            />
-            <span className="help-text">
-              Используется для генерации умных ссылок подписки сотрудников.
-            </span>
+          <div className="form-grid">
+            <div className="form-group">
+              <label className="form-label">URL-адрес этой Бизнес-Панели</label>
+              <input
+                type="url"
+                className="form-input"
+                placeholder="http://your-panel-domain-or-ip:3000"
+                value={appPanelUrl}
+                onChange={(e) => setAppPanelUrl(e.target.value)}
+                required
+              />
+              <span className="help-text">
+                Используется для генерации умных ссылок подписки сотрудников.
+              </span>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Рыночная цена подписки (руб./мес)</label>
+              <input
+                type="number"
+                className="form-input"
+                placeholder="100"
+                min="0"
+                value={btwSubscriptionPrice}
+                onChange={(e) => setBtwSubscriptionPrice(e.target.value)}
+                required
+              />
+              <span className="help-text">
+                Розничная стоимость одного VPN-ключа (используется для расчета выручки и прибыли).
+              </span>
+            </div>
           </div>
 
           <div className="form-group">
@@ -616,6 +651,93 @@ export default function SettingsPage() {
               Отображается на персональной веб-странице клиента в случае окончания лимитов или блокировки.
             </span>
           </div>
+
+          {/* Блок настройки себестоимости серверов */}
+          <div className="form-group" style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '20px', marginTop: '10px' }}>
+            <label className="form-label" style={{ marginBottom: '10px' }}>Стоимость аренды серверов / нод (руб/мес)</label>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              
+              {/* Master Node 0 */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                <span style={{ fontSize: '13px', width: '220px', color: '#9ca3af', fontWeight: 600 }}>Основной сервер (Нода 0)</span>
+                <input
+                  type="number"
+                  className="form-input"
+                  placeholder="300"
+                  min="0"
+                  value={xuiNodeCosts['0'] || ''}
+                  onChange={(e) => setXuiNodeCosts({ ...xuiNodeCosts, '0': e.target.value })}
+                  style={{ flexGrow: 1, maxWidth: '200px' }}
+                />
+                <span style={{ fontSize: '13px', color: '#6b7280' }}>руб/мес</span>
+              </div>
+
+              {/* Other configured nodes */}
+              {Object.entries(xuiNodeCosts)
+                .filter(([id]) => id !== '0')
+                .map(([id, cost]) => (
+                  <div key={id} style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                    <span style={{ fontSize: '13px', width: '220px', color: '#9ca3af', fontWeight: 600 }}>Вторичный сервер (Нода {id})</span>
+                    <input
+                      type="number"
+                      className="form-input"
+                      placeholder="500"
+                      min="0"
+                      value={cost}
+                      onChange={(e) => setXuiNodeCosts({ ...xuiNodeCosts, [id]: e.target.value })}
+                      style={{ flexGrow: 1, maxWidth: '200px' }}
+                    />
+                    <span style={{ fontSize: '13px', color: '#6b7280' }}>руб/мес</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const copy = { ...xuiNodeCosts };
+                        delete copy[id];
+                        setXuiNodeCosts(copy);
+                      }}
+                      style={{ 
+                        background: 'rgba(239, 68, 68, 0.1)', 
+                        border: '1px solid rgba(239, 68, 68, 0.2)', 
+                        color: '#f87171', 
+                        cursor: 'pointer',
+                        padding: '6px 10px',
+                        borderRadius: '6px',
+                        fontSize: '11px'
+                      }}
+                    >
+                      Удалить
+                    </button>
+                  </div>
+                ))}
+
+              <button
+                type="button"
+                className="btn-backup"
+                onClick={() => {
+                  const maxId = Object.keys(xuiNodeCosts).length > 0 
+                    ? Math.max(...Object.keys(xuiNodeCosts).map(Number)) 
+                    : 0;
+                  const nextId = String(maxId + 1);
+                  setXuiNodeCosts({ ...xuiNodeCosts, [nextId]: '' });
+                }}
+                style={{ 
+                  fontSize: '12px', 
+                  padding: '8px 15px', 
+                  alignSelf: 'flex-start', 
+                  marginTop: '5px',
+                  background: 'rgba(6, 182, 212, 0.05)',
+                  borderColor: 'rgba(6, 182, 212, 0.15)',
+                  color: '#06b6d4'
+                }}
+              >
+                + Указать стоимость аренды другой ноды
+              </button>
+              <span className="help-text" style={{ fontSize: '10px' }}>
+                Введите стоимость аренды каждого сервера в месяц. Панель будет рассчитывать реальную себестоимость одного клиента и чистую прибыль.
+              </span>
+            </div>
+          </div>
         </div>
 
         {/* --- СЕКЦИЯ 4: TELEGRAM УВЕДОМЛЕНИЯ И СИНХРОНИЗАЦИЯ --- */}
@@ -627,7 +749,7 @@ export default function SettingsPage() {
 
           <div className="form-grid">
             <div className="form-group">
-              <label className="form-label">Токен бота Telegram (Алертер)</label>
+              <label className="form-label">Токен бота Telegram (Алертер/Интеграция)</label>
               <input
                 type="text"
                 className="form-input"
@@ -649,20 +771,36 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          <div className="form-group">
-            <label className="form-label">Интервал авто-синхронизации трафика (в минутах)</label>
-            <input
-              type="number"
-              className="form-input"
-              min="5"
-              max="1440"
-              value={syncInterval}
-              onChange={(e) => setSyncInterval(e.target.value)}
-              required
-            />
-            <span className="help-text">
-              Как часто панель в фоновом режиме будет опрашивать 3XUI сервер и обновлять трафик в PostgreSQL.
-            </span>
+          <div className="form-grid">
+            <div className="form-group">
+              <label className="form-label">Username вашего Telegram-бота (без @)</label>
+              <input
+                type="text"
+                className="form-input"
+                placeholder="btw_vpn_bot"
+                value={tgBotUsername}
+                onChange={(e) => setTgBotUsername(e.target.value)}
+              />
+              <span className="help-text">
+                Необходим для генерации ссылок привязки и WebApp кабинетов клиентов.
+              </span>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Интервал авто-синхронизации трафика (в минутах)</label>
+              <input
+                type="number"
+                className="form-input"
+                min="5"
+                max="1440"
+                value={syncInterval}
+                onChange={(e) => setSyncInterval(e.target.value)}
+                required
+              />
+              <span className="help-text">
+                Как часто панель в фоновом режиме будет опрашивать 3XUI сервер и обновлять трафик в PostgreSQL.
+              </span>
+            </div>
           </div>
         </div>
 

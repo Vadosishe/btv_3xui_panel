@@ -47,6 +47,7 @@ interface Client {
   expiresAt: string | null;
   flow: string | null;
   tgId: string | null;
+  isOnline?: boolean;
   usedTrafficBytes: string;
   lastSyncedAt: string | null;
   companyId: string;
@@ -490,6 +491,45 @@ export default function ClientsPage() {
           color: #f87171;
         }
 
+        .online-badge {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          font-size: 10px;
+          font-weight: 700;
+          padding: 4px 10px;
+          border-radius: 20px;
+          background: rgba(16, 185, 129, 0.08);
+          border: 1px solid rgba(16, 185, 129, 0.2);
+          color: #34d399;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+
+        .online-pulse {
+          width: 6px;
+          height: 6px;
+          background-color: #10b981;
+          border-radius: 50%;
+          box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+          animation: pulse 1.6s infinite;
+        }
+
+        @keyframes pulse {
+          0% {
+            transform: scale(0.95);
+            box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+          }
+          70% {
+            transform: scale(1);
+            box-shadow: 0 0 0 6px rgba(16, 185, 129, 0);
+          }
+          100% {
+            transform: scale(0.95);
+            box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+          }
+        }
+
         .card-actions {
           display: flex;
           gap: 8px;
@@ -816,9 +856,18 @@ export default function ClientsPage() {
                       <div className="client-email">{client.email}</div>
                     </div>
                     
-                    <div className={`status-pill ${client.isActive && !isExpired ? 'pill-active' : 'pill-inactive'}`}>
-                      {client.isActive && !isExpired ? <CheckCircle size={12} /> : <XCircle size={12} />}
-                      <span>{isExpired ? 'Истек' : client.isActive ? 'Активен' : 'Отключен'}</span>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                      {client.isOnline && (
+                        <div className="online-badge">
+                          <div className="online-pulse" />
+                          <span>Онлайн</span>
+                        </div>
+                      )}
+                      
+                      <div className={`status-pill ${client.isActive && !isExpired ? 'pill-active' : 'pill-inactive'}`}>
+                        {client.isActive && !isExpired ? <CheckCircle size={12} /> : <XCircle size={12} />}
+                        <span>{isExpired ? 'Истек' : client.isActive ? 'Активен' : 'Отключен'}</span>
+                      </div>
                     </div>
                   </div>
 

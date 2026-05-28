@@ -18,16 +18,26 @@ export async function GET() {
           select: { name: true },
         },
         template: {
-          select: { name: true },
+          select: { name: true, trafficLimitGB: true, limitIp: true, durationDays: true },
         },
       },
       orderBy: { createdAt: 'desc' },
     });
 
+    // Получаем онлайн-клиентов с 3XUI
+    let onlineEmails: string[] = [];
+    try {
+      const { xuiGetOnlineClients } = await import('@/lib/xui');
+      onlineEmails = await xuiGetOnlineClients();
+    } catch (e) {
+      console.warn('Failed to fetch online clients in GET clients route:', e);
+    }
+
     // Конвертируем BigInt в строку перед сериализацией JSON
     const serializedClients = clients.map(client => ({
       ...client,
       usedTrafficBytes: client.usedTrafficBytes.toString(),
+      isOnline: onlineEmails.includes(client.email),
     }));
 
     return NextResponse.json({ success: true, clients: serializedClients });

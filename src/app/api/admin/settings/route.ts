@@ -28,6 +28,10 @@ export async function GET() {
       tg_bot_token: settingsMap.tg_bot_token || '',
       tg_admin_chat_ids: settingsMap.tg_admin_chat_ids || '',
       sync_interval_minutes: settingsMap.sync_interval_minutes || '15',
+      xui_node_costs: settingsMap.xui_node_costs || '{}',
+      btw_subscription_price: settingsMap.btw_subscription_price || '100',
+      xui_telegram_bot_token: settingsMap.xui_telegram_bot_token || '',
+      xui_telegram_bot_username: settingsMap.xui_telegram_bot_username || '',
     };
 
     return NextResponse.json({ success: true, settings: responseSettings });

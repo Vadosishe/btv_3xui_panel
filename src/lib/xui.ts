@@ -321,3 +321,18 @@ export async function xuiGetNodeDomains(): Promise<Record<string, string>> {
 
   return nodeDomains;
 }
+
+/**
+ * Получить список email-ов клиентов, находящихся в сети (онлайн) прямо сейчас
+ */
+export async function xuiGetOnlineClients(): Promise<string[]> {
+  try {
+    const data = await xuiRequest('/panel/api/inbounds/onlines', 'POST');
+    if (data.success && Array.isArray(data.obj)) {
+      return data.obj.map((email: any) => String(email));
+    }
+  } catch (err: any) {
+    console.error('Failed to fetch online clients from 3XUI:', err.message);
+  }
+  return [];
+}

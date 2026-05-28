@@ -26,6 +26,7 @@ export async function GET(
     const settings = await prisma.appSetting.findMany();
     const settingsMap = new Map(settings.map(s => [s.key, s.value]));
     const supportLink = settingsMap.get('btw_support_link') || 'https://t.me/btw_support_bot';
+    const tgBotUsername = settingsMap.get('xui_telegram_bot_username') || '';
 
     // Проверяем активность подписки
     const now = new Date();
@@ -117,7 +118,7 @@ export async function GET(
       } catch (e) {}
 
       // Отдаем красивую HTML страницу
-      return new NextResponse(renderSubscriptionPortal(client, usedGBText, limitGBText, progressPercent, configLinks, supportLink), {
+      return new NextResponse(renderSubscriptionPortal(client, usedGBText, limitGBText, progressPercent, configLinks, supportLink, tgBotUsername), {
         headers: { 'Content-Type': 'text/html; charset=utf-8' },
       });
     }
@@ -251,7 +252,8 @@ function renderSubscriptionPortal(
   limitGB: string,
   progress: number,
   configLinks: string[],
-  supportLink: string
+  supportLink: string,
+  tgBotUsername: string
 ): string {
   const configsJson = JSON.stringify(configLinks);
   const expirationText = client.expiresAt 
@@ -517,6 +519,21 @@ function renderSubscriptionPortal(
             <button class="btn-sub" onclick="copySubscription()">Скопировать ссылку для приложений</button>
             <a href="${supportLink}" class="btn-tg" target="_blank">Связаться с техподдержкой</a>
           </div>
+
+          <!-- Секция Telegram бота (Уведомления и контроль) -->
+          ${tgBotUsername ? `
+            <div class="configs-section" style="border-top: 1px solid rgba(255,255,255,0.06); margin-top: 20px; padding-top: 20px;">
+              <div style="font-size: 11px; color: #9ca3af; margin-bottom: 12px; text-align: center; display: flex; align-items: center; justify-content: center; gap: 6px;">
+                <span>🤖 Уведомления и Бот в Telegram</span>
+              </div>
+              <div style="background: rgba(6, 182, 212, 0.05); border: 1px solid rgba(6, 182, 212, 0.15); padding: 15px; border-radius: 12px; text-align: left; font-size: 12px; color: #9be9f8; line-height: 1.5; margin-bottom: 12px;">
+                Привяжите нашего Telegram-бота, чтобы получать автоматические уведомления об окончании трафика или подписки и проверять баланс командой <b>/status</b>!
+              </div>
+              <a href="https://t.me/${tgBotUsername}?start=${client.subscriptionToken}" target="_blank" class="btn-sub" style="display: block; text-decoration: none; text-align: center; background: linear-gradient(135deg, #0284c7, #0369a1);">
+                🔗 Привязать Telegram-бота
+              </a>
+            </div>
+          ` : ''}
 
           <!-- Секция AmneziaVPN (Архитектурный плейсхолдер) -->
           <div class="configs-section" style="border-top: 1px solid rgba(255,255,255,0.06); margin-top: 20px; padding-top: 20px;">

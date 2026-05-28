@@ -51,12 +51,23 @@ export default function DashboardPage() {
     totalTrafficGB: '0.00',
   });
 
+  // Финансовая аналитика
+  const [financials, setFinancials] = useState({
+    totalCosts: 0,
+    costPerClient: '0.0',
+    totalRevenue: 0,
+    pricePerClient: 100,
+    netProfit: 0,
+    roi: 0,
+  });
+
   useEffect(() => {
     async function loadData() {
       try {
-        const [compRes, clientRes] = await Promise.all([
+        const [compRes, clientRes, settingsRes] = await Promise.all([
           fetch('/api/admin/companies'),
           fetch('/api/admin/clients'),
+          fetch('/api/admin/settings'),
         ]);
 
         if (compRes.ok && clientRes.ok) {
@@ -86,6 +97,36 @@ export default function DashboardPage() {
             totalClients,
             activeClients,
             totalTrafficGB,
+          });
+
+          // Подгружаем финансовые настройки
+          let pricePerClient = 100;
+          let nodeCostsObj: Record<string, string> = {};
+          if (settingsRes.ok) {
+            const setts = await settingsRes.json();
+            const s = setts.settings || {};
+            pricePerClient = Number(s.btw_subscription_price) || 100;
+            try {
+              nodeCostsObj = JSON.parse(s.xui_node_costs || '{}');
+            } catch (e) {
+              nodeCostsObj = {};
+            }
+          }
+
+          // Считаем финансы
+          const totalCosts = Object.values(nodeCostsObj).reduce((sum, cost) => sum + (Number(cost) || 0), 0);
+          const totalRevenue = activeClients * pricePerClient;
+          const netProfit = totalRevenue - totalCosts;
+          const costPerClient = activeClients > 0 ? (totalCosts / activeClients).toFixed(1) : '0.0';
+          const roi = totalCosts > 0 ? Math.round((netProfit / totalCosts) * 100) : 0;
+
+          setFinancials({
+            totalCosts,
+            costPerClient,
+            totalRevenue,
+            pricePerClient,
+            netProfit,
+            roi,
           });
 
           // Для графиков и отчетов приведем трафик по компаниям
@@ -372,6 +413,50 @@ export default function DashboardPage() {
           <div>
             <div className="stat-title">Расход трафика</div>
             <div className="stat-val">{stats.totalTrafficGB} GB</div>
+          </div>
+        </div>
+      </div>
+
+      {/* --- ФИНАНСОВЫЙ ДАШБОРД (БИЗНЕС-ПОКАЗАТЕЛИ) --- */}
+      <div className="stats-row" style={{ marginTop: '5px' }}>
+        <div className="stat-card glass-panel interactive-element" style={{ background: 'rgba(239, 68, 68, 0.03)', borderColor: 'rgba(239, 68, 68, 0.12)' }}>
+          <div className="stat-icon" style={{ background: 'rgba(239, 68, 68, 0.08)', color: '#f87171' }}>
+            <Server size={22} />
+          </div>
+          <div>
+            <div className="stat-title" style={{ fontSize: '11px' }}>Расходы на аренду серверов</div>
+            <div className="stat-val" style={{ color: '#f87171', fontSize: '24px' }}>{financials.totalCosts} ₽</div>
+            <div style={{ fontSize: '10px', color: '#6b7280', marginTop: '4px' }}>
+              Себестоимость: <strong>{financials.costPerClient} ₽</strong> / клиент
+            </div>
+          </div>
+        </div>
+
+        <div className="stat-card glass-panel interactive-element" style={{ background: 'rgba(16, 185, 129, 0.03)', borderColor: 'rgba(16, 185, 129, 0.12)' }}>
+          <div className="stat-icon" style={{ background: 'rgba(16, 185, 129, 0.08)', color: '#34d399' }}>
+            <TrendingUp size={22} />
+          </div>
+          <div>
+            <div className="stat-title" style={{ fontSize: '11px' }}>Расчетная выручка</div>
+            <div className="stat-val" style={{ color: '#34d399', fontSize: '24px' }}>{financials.totalRevenue} ₽</div>
+            <div style={{ fontSize: '10px', color: '#6b7280', marginTop: '4px' }}>
+              Рыночный тариф: <strong>{financials.pricePerClient} ₽</strong> / мес
+            </div>
+          </div>
+        </div>
+
+        <div className="stat-card glass-panel interactive-element" style={{ background: 'rgba(6, 182, 212, 0.03)', borderColor: 'rgba(6, 182, 212, 0.12)', gridColumn: 'span 2' }}>
+          <div className="stat-icon" style={{ background: 'rgba(6, 182, 212, 0.08)', color: '#22d3ee' }}>
+            <Activity size={22} />
+          </div>
+          <div>
+            <div className="stat-title" style={{ fontSize: '11px' }}>Чистая прибыль в месяц</div>
+            <div className="stat-val" style={{ color: '#22d3ee', fontSize: '26px' }}>
+              {financials.netProfit >= 0 ? `+${financials.netProfit}` : financials.netProfit} ₽
+            </div>
+            <div style={{ fontSize: '10px', color: '#6b7280', marginTop: '4px' }}>
+              Рентабельность инвестиций (ROI): <strong>{financials.roi}%</strong>
+            </div>
           </div>
         </div>
       </div>
