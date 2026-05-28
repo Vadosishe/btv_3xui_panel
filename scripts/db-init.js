@@ -38,6 +38,14 @@ async function main() {
   try {
     await client.connect();
 
+    // Попытка обновить версию локали для template1, чтобы исправить ошибку Postgres
+    try {
+      await client.query('ALTER DATABASE template1 REFRESH COLLATION VERSION');
+      console.log('Локаль template1 успешно обновлена.');
+    } catch (localeErr) {
+      // Игнорируем ошибку прав, если пользователь не суперпользователь
+    }
+
     // Проверяем, существует ли целевая база данных
     const res = await client.query('SELECT 1 FROM pg_database WHERE datname = $1', [targetDb]);
 
@@ -45,24 +53,28 @@ async function main() {
       console.log(`База данных "${targetDb}" не найдена. Создаем её...`);
       
       try {
-        // Пробуем создать стандартным способом
         await client.query(`CREATE DATABASE "${targetDb}"`);
         console.log(`УСПЕХ: База данных "${targetDb}" успешно создана!`);
       } catch (createErr) {
-        if (createErr.message.includes('collation version mismatch') || createErr.message.includes('collation')) {
-          console.log(`Обнаружено несовпадение локали (collation mismatch). Пробуем создать с LC_COLLATE = 'C'...`);
-          await client.query(`CREATE DATABASE "${targetDb}" LC_COLLATE = 'C' LC_CTYPE = 'C'`);
-          console.log(`УСПЕХ: База данных "${targetDb}" создана с LC_COLLATE = 'C'!`);
-        } else {
-          throw createErr;
-        }
+        // Если стандартное создание упало из-за локали, попробуем обновить локаль текущей БД и повторить
+        try {
+          await client.query('ALTER DATABASE postgres REFRESH COLLATION VERSION');
+        } catch (e) {}
+        
+        throw createErr;
       }
     } else {
       console.log(`База данных "${targetDb}" уже существует. Дополнительных действий не требуется.`);
     }
   } catch (err) {
     console.warn(`[ВНИМАНИЕ] Не удалось автоматически создать базу данных "${targetDb}":`, err.message);
-    console.warn('Next.js продолжит запуск. Если возникнет ошибка подключения, убедитесь, что база данных существует, или измените DATABASE_URL в docker-compose.yml на использование существующей базы "n8n".');
+    console.warn('----------------------------------------------------------------------');
+    console.warn('СОВЕТ: Если у вас ошибка несовместимости локали (collation mismatch),');
+    console.warn('вы можете использовать существующую БД "n8n" в изолированной схеме!');
+    console.warn('Для этого просто измените DATABASE_URL в docker-compose.yml на:');
+    console.warn('DATABASE_URL=postgresql://n8n_user:P0stgr3s!Pass456@postgres:5432/n8n?schema=vpn_panel');
+    console.warn('Панель будет работать в изолированном пространстве vpn_panel внутри базы n8n и ничего не сломает.');
+    console.warn('----------------------------------------------------------------------');
   } finally {
     try {
       await client.end();

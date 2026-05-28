@@ -186,8 +186,8 @@ services:
     ports:
       - "3002:3000" # Доступ на хосте через порт 3002
     environment:
-      # Автоматическое создание изолированной базы vpn_panel_db в существующем Postgres
-      - DATABASE_URL=postgresql://n8n_user:P0stgr3s!Pass456@postgres:5432/vpn_panel_db?schema=public
+      # Использование существующей базы n8n в изолированной схеме vpn_panel (обходит ошибки локали Postgres)
+      - DATABASE_URL=postgresql://n8n_user:P0stgr3s!Pass456@postgres:5432/n8n?schema=vpn_panel
       - JWT_SECRET=BTW_Super_Secret_JWT_Scalebox_123!_Change_Me_In_Prod
       - NEXTAUTH_URL=https://vpn.scalebox.ai
       - SYNC_INTERVAL_MINUTES=15
