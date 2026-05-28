@@ -69,7 +69,13 @@ async function xuiRequest<T = any>(
     });
 
     if (!res.ok) {
-      throw new Error(`3XUI API error on ${path}: Status ${res.status}`);
+      let responseBody = '';
+      try {
+        responseBody = await res.text();
+      } catch (bodyErr) {}
+      
+      const errorMsg = `3XUI API error on ${method} ${url}: Status ${res.status}. Response: ${responseBody.slice(0, 300)}`;
+      throw new Error(errorMsg);
     }
 
     const data = await res.json();

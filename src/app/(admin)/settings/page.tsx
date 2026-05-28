@@ -759,7 +759,7 @@ export default function SettingsPage() {
             </div>
 
             <div className="form-group">
-              <label className="form-label">ID чатов админов (через запятую)</label>
+              <label className="form-label">ID администраторов Telegram (через запятую)</label>
               <input
                 type="text"
                 className="form-input"
@@ -767,6 +767,9 @@ export default function SettingsPage() {
                 value={tgAdminChatIds}
                 onChange={(e) => setTgAdminChatIds(e.target.value)}
               />
+              <span className="help-text">
+                Числовые Telegram ID администраторов (например, 430127463) для получения критических уведомлений о трафике и балансе. Узнать свой ID можно в ботах вроде @userinfobot.
+              </span>
             </div>
           </div>
 

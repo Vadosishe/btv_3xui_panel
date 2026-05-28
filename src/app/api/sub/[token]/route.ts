@@ -588,14 +588,44 @@ function renderSubscriptionPortal(
           }, 2000);
         }
 
+        function copyToClipboard(text, successMsg) {
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text)
+              .then(() => showToast(successMsg))
+              .catch(() => fallbackCopy(text, successMsg));
+          } else {
+            fallbackCopy(text, successMsg);
+          }
+        }
+
+        function fallbackCopy(text, successMsg) {
+          const textArea = document.createElement("textarea");
+          textArea.value = text;
+          textArea.style.top = "0";
+          textArea.style.left = "0";
+          textArea.style.position = "fixed";
+          document.body.appendChild(textArea);
+          textArea.focus();
+          textArea.select();
+          try {
+            const successful = document.execCommand('copy');
+            if (successful) {
+              showToast(successMsg);
+            } else {
+              showToast('Не удалось скопировать. Скопируйте вручную.');
+            }
+          } catch (err) {
+            showToast('Ошибка при копировании. Скопируйте вручную.');
+          }
+          document.body.removeChild(textArea);
+        }
+
         function copySubscription() {
-          navigator.clipboard.writeText(subUrl);
-          showToast('Ссылка подписки скопирована!');
+          copyToClipboard(subUrl, 'Ссылка подписки скопирована!');
         }
 
         function copyConfig(idx) {
-          navigator.clipboard.writeText(configLinks[idx]);
-          showToast('VPN ключ скопирован!');
+          copyToClipboard(configLinks[idx], 'VPN ключ скопирован!');
         }
 
         function downloadAmneziaConfig() {

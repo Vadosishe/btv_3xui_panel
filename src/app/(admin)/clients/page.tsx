@@ -264,10 +264,37 @@ export default function ClientsPage() {
     }
   };
 
-  // Копирование в буфер
+  // Копирование в буфер с fallback для HTTP
   const copyToClipboard = (text: string, msg: string) => {
-    navigator.clipboard.writeText(text);
-    alert(msg);
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text)
+        .then(() => alert(msg))
+        .catch(() => fallbackCopy(text, msg));
+    } else {
+      fallbackCopy(text, msg);
+    }
+  };
+
+  const fallbackCopy = (text: string, msg: string) => {
+    const textArea = document.createElement("textarea");
+    textArea.value = text;
+    textArea.style.top = "0";
+    textArea.style.left = "0";
+    textArea.style.position = "fixed";
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    try {
+      const successful = document.execCommand('copy');
+      if (successful) {
+        alert(msg);
+      } else {
+        alert('Не удалось скопировать автоматически. Пожалуйста, скопируйте вручную.');
+      }
+    } catch (err) {
+      alert('Ошибка при копировании. Пожалуйста, скопируйте вручную.');
+    }
+    document.body.removeChild(textArea);
   };
 
   // Фильтр и сортировка списка сотрудников
