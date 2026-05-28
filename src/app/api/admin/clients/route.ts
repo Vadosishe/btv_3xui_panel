@@ -33,11 +33,14 @@ export async function GET() {
       console.warn('Failed to fetch online clients in GET clients route:', e);
     }
 
+    const onlineEmailsLower = onlineEmails.map(e => String(e).toLowerCase().trim());
+
     // Конвертируем BigInt в строку перед сериализацией JSON
     const serializedClients = clients.map(client => ({
       ...client,
       usedTrafficBytes: client.usedTrafficBytes.toString(),
-      isOnline: onlineEmails.includes(client.email),
+      isOnline: onlineEmailsLower.includes(client.email.toLowerCase().trim()) || 
+                onlineEmailsLower.includes(client.vpnUuid.toLowerCase().trim()),
     }));
 
     return NextResponse.json({ success: true, clients: serializedClients });
