@@ -166,19 +166,31 @@ export async function handleTelegramMessage(token: string, message: any) {
   // 5. Команда /instructions
   if (text === '/instructions') {
     const instructionsMsg = `📱 <b>Инструкции по настройке BTV VPN:</b>\n\n` +
+      `⚡ <b>САМЫЙ ПРОСТОЙ СПОСОБ (Рекомендуется):</b>\n` +
+      `Используйте однокнопочное приложение <b>Happ - Proxy Utility</b> (работает в 1 клик):\n` +
+      `🍏 <a href="https://apps.apple.com/app/happ-proxy-utility/id6475730248">Скачать Happ для iPhone / iOS</a>\n` +
+      `🤖 <a href="https://play.google.com/store/apps/details?id=com.happ.proxy">Скачать Happ для Android</a>\n\n` +
+      `<b>Как настроить Happ:</b>\n` +
+      `1️⃣ Скопируйте вашу ссылку подписки (через команду /config).\n` +
+      `2️⃣ Откройте Happ. Приложение само автоматически предложит импортировать ссылку (нажмите OK / Import).\n` +
+      `3️⃣ Нажмите большую круглую кнопку подключения по центру. Всё готово! 🎉\n\n` +
+      `──────────────────\n\n` +
+      `⚙️ <b>Альтернативные приложения (для опытных пользователей):</b>\n\n` +
       `🍏 <b>iOS (iPhone, iPad):</b>\n` +
-      `1. Скачайте приложение <a href="https://apps.apple.com/app/sing-box-tool/id6475221237">Sing-box</a> или <a href="https://apps.apple.com/app/shadowrocket/id932747118">Shadowrocket</a> ($2.99).\n` +
-      `2. Скопируйте умную ссылку подписки из кабинета или по команде /config.\n` +
-      `3. В приложении добавьте новый профиль типа <code>HTTP/Subscription</code> и укажите ссылку.\n\n` +
+      `• <a href="https://apps.apple.com/app/sing-box-tool/id6475221237">Sing-box</a> (бесплатный, стабильный клиент).\n` +
+      `• <a href="https://apps.apple.com/app/shadowrocket/id932747118">Shadowrocket</a> ($2.99, продвинутый).\n` +
+      `<i>Импорт: добавить профиль → тип HTTP / Subscription → вставить ссылку подписки.</i>\n\n` +
       `🤖 <b>Android:</b>\n` +
-      `1. Скачайте <a href="https://play.google.com/store/apps/details?id=com.v2ray.ang">v2rayNG</a> или <a href="https://play.google.com/store/apps/details?id=io.nekohasekai.sfa">Sing-box</a>.\n` +
-      `2. Импортируйте ключ или ссылку подписки через кнопку "+".\n\n` +
+      `• <a href="https://play.google.com/store/apps/details?id=com.v2ray.ang">v2rayNG</a> (классика для Android).\n` +
+      `• <a href="https://play.google.com/store/apps/details?id=io.nekohasekai.sfa">Sing-box</a> (быстрый и энергоэффективный).\n` +
+      `<i>Импорт: нажать "+" → добавить подписку/профиль → вставить ссылку подписки.</i>\n\n` +
       `💻 <b>Windows:</b>\n` +
-      `1. Скачайте программу <a href="https://github.com/MatsuriDayo/nekoray/releases">Nekoray</a>.\n` +
-      `2. Добавьте ссылку подписки (Группы -> Настройки группы -> Добавить).\n\n` +
+      `• <a href="https://github.com/MatsuriDayo/nekoray/releases">Nekoray</a> (мощный клиент для ПК).\n` +
+      `• <a href="https://github.com/hiddify/hiddify-next/releases">Hiddify</a> (простой однокнопочный клиент для ПК).\n` +
+      `<i>Импорт: добавить ссылку подписки (Группы → Настройки группы) или скопировать в Hiddify.</i>\n\n` +
       `🍏 <b>macOS:</b>\n` +
-      `1. Используйте <a href="https://apps.apple.com/app/foxtun/id6475221237">FoXray</a> или <a href="https://apps.apple.com/app/sing-box-tool/id6475221237">Sing-box</a>.\n` +
-      `2. Импортируйте умную подписку.`;
+      `• <a href="https://apps.apple.com/app/foxtun/id6475221237">FoXray</a> или <a href="https://apps.apple.com/app/sing-box-tool/id6475221237">Sing-box</a>.\n` +
+      `<i>Импорт: добавить подписку.</i>`;
     await sendTelegramMessage(token, chatId, instructionsMsg);
     return;
   }

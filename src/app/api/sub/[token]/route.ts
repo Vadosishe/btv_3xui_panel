@@ -522,6 +522,23 @@ function renderSubscriptionPortal(
             <a href="${supportLink}" class="btn-tg" target="_blank">Связаться с техподдержкой</a>
           </div>
 
+          <!-- Секция Быстрой настройки HAPP (Однокнопочный клиент) -->
+          <div class="configs-section" style="border-top: 1px solid rgba(255,255,255,0.06); margin-top: 20px; padding-top: 20px;">
+            <div style="font-size: 11px; color: #9ca3af; margin-bottom: 12px; text-align: center; display: flex; align-items: center; justify-content: center; gap: 6px;">
+              <span>⚡ Быстрое подключение в 1 клик (Рекомендуется)</span>
+            </div>
+            <div style="background: rgba(6, 182, 212, 0.05); border: 1px solid rgba(6, 182, 212, 0.15); padding: 15px; border-radius: 12px; text-align: left; font-size: 12px; color: #9be9f8; line-height: 1.5; margin-bottom: 12px;">
+              <strong style="color: #fff; display: block; margin-bottom: 6px;">Самый простой способ настройки:</strong>
+              1. Скопируйте ссылку подписки кнопкой выше.<br/>
+              2. Установите однокнопочное приложение <strong>Happ - Proxy Utility</strong>:<br/>
+              <div style="display: flex; gap: 10px; margin: 10px 0;">
+                <a href="https://apps.apple.com/app/happ-proxy-utility/id6475730248" target="_blank" class="btn-tg" style="flex: 1; text-align: center; padding: 8px; font-size: 11px; text-decoration: none; display: block; border-color: rgba(6, 182, 212, 0.3); color: #22d3ee;">🍏 Скачать для iOS</a>
+                <a href="https://play.google.com/store/apps/details?id=com.happ.proxy" target="_blank" class="btn-tg" style="flex: 1; text-align: center; padding: 8px; font-size: 11px; text-decoration: none; display: block; border-color: rgba(6, 182, 212, 0.3); color: #22d3ee;">🤖 Скачать для Android</a>
+              </div>
+              3. Откройте приложение <strong>Happ</strong>, подтвердите автоматический импорт ссылки из буфера обмена и нажмите круглую кнопку подключения в центре. VPN готов к работе! 🎉
+            </div>
+          </div>
+
           <!-- Секция Telegram бота (Уведомления и контроль) -->
           ${tgBotUsername ? `
             <div class="configs-section" style="border-top: 1px solid rgba(255,255,255,0.06); margin-top: 20px; padding-top: 20px;">
