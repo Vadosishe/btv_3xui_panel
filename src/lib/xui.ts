@@ -139,11 +139,10 @@ export async function xuiAddClient(
     flow: client.flow ?? '',
   };
 
+  // Формат MHSanaei 3x-ui: { inboundId, client }
   const body = {
-    id: inboundId,
-    settings: JSON.stringify({
-      clients: [clientPayload],
-    }),
+    inboundId: inboundId,
+    client: clientPayload,
   };
 
   const data = await xuiRequest('/panel/api/inbounds/addClient', 'POST', body);
@@ -186,11 +185,10 @@ export async function xuiUpdateClient(
     tgId: client.tgId ?? '',
   };
 
+  // Формат MHSanaei 3x-ui: { inboundId, client }
   const body = {
-    id: inboundId,
-    settings: JSON.stringify({
-      clients: [clientPayload],
-    }),
+    inboundId: inboundId,
+    client: clientPayload,
   };
 
   const data = await xuiRequest(`/panel/api/inbounds/updateClient/${clientUuid}`, 'POST', body);
