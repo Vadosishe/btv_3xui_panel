@@ -502,17 +502,17 @@ export default function ClientsPage() {
           display: flex;
           align-items: center;
           gap: 4px;
-          background: rgba(255,255,255,0.04);
-          border: 1px solid rgba(255,255,255,0.06);
-          color: #e5e7eb;
+          background: var(--border-color);
+          border: 1px solid var(--border-color);
+          color: var(--text-secondary);
         }
 
         .limits-row {
           display: grid;
           grid-template-columns: 1fr 1fr;
           gap: 8px;
-          background: rgba(0,0,0,0.12);
-          border: 1px solid rgba(255,255,255,0.02);
+          background: var(--border-color);
+          border: 1px solid var(--border-color);
           border-radius: 8px;
           padding: 8px;
           margin-bottom: 12px;
@@ -541,7 +541,7 @@ export default function ClientsPage() {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          border-top: 1px solid rgba(255,255,255,0.05);
+          border-top: 1px solid var(--border-color);
           padding-top: 10px;
         }
 
@@ -656,13 +656,13 @@ export default function ClientsPage() {
         }
 
         .modal-card {
-          background: #0f1219;
-          border: 1px solid rgba(255, 255, 255, 0.08);
+          background: var(--bg-sidebar);
+          border: 1px solid var(--border-color);
           border-radius: 20px;
           max-width: 500px;
           width: 100%;
           padding: 30px;
-          box-shadow: 0 15px 40px rgba(0,0,0,0.5);
+          box-shadow: var(--shadow-md);
           display: flex;
           flex-direction: column;
           gap: 20px;
@@ -676,7 +676,7 @@ export default function ClientsPage() {
           align-items: center;
           font-size: 18px;
           font-weight: 700;
-          color: #fff;
+          color: var(--text-primary);
         }
 
         .form-group {
@@ -688,21 +688,21 @@ export default function ClientsPage() {
         .form-label {
           font-size: 11px;
           font-weight: 600;
-          color: #9ca3af;
+          color: var(--text-muted);
           text-transform: uppercase;
         }
 
         .form-input {
-          background: rgba(0,0,0,0.3);
-          border: 1px solid rgba(255,255,255,0.08);
+          background: var(--bg-card);
+          border: 1px solid var(--border-color);
           border-radius: 10px;
           padding: 12px;
-          color: #fff;
+          color: var(--text-primary);
           font-size: 14px;
         }
 
         .form-input:focus {
-          border-color: #06b6d4;
+          border-color: var(--accent-cyan);
         }
 
         .form-checkbox {
@@ -711,12 +711,12 @@ export default function ClientsPage() {
           gap: 10px;
           cursor: pointer;
           font-size: 13px;
-          color: #e5e7eb;
+          color: var(--text-secondary);
         }
 
         .btn-save {
           background: linear-gradient(135deg, #06b6d4, #a855f7);
-          color: #white;
+          color: #fff;
           border: none;
           padding: 12px;
           border-radius: 10px;
@@ -730,9 +730,9 @@ export default function ClientsPage() {
         }
 
         .btn-cancel {
-          background: rgba(255,255,255,0.05);
-          border: 1px solid rgba(255,255,255,0.08);
-          color: #9ca3af;
+          background: var(--border-color);
+          border: 1px solid var(--border-color);
+          color: var(--text-muted);
           padding: 12px;
           border-radius: 10px;
           font-size: 14px;
@@ -804,13 +804,13 @@ export default function ClientsPage() {
           flex-direction: column;
           gap: 10px;
           width: 100%;
-          border-top: 1px solid rgba(255,255,255,0.05);
+          border-top: 1px solid var(--border-color);
           padding-top: 20px;
         }
 
         .raw-config-item {
-          background: rgba(255,255,255,0.02);
-          border: 1px solid rgba(255,255,255,0.04);
+          background: var(--border-color);
+          border: 1px solid var(--border-color);
           border-radius: 8px;
           padding: 8px 12px;
           display: flex;
@@ -883,10 +883,10 @@ export default function ClientsPage() {
             style={{ 
               cursor: 'pointer', 
               textAlign: 'center', 
-              background: 'rgba(0,0,0,0.3)', 
-              border: '1px solid rgba(255,255,255,0.08)', 
+              background: 'var(--bg-card)', 
+              border: '1px solid var(--border-color)', 
               borderRadius: '10px', 
-              color: '#fff', 
+              color: 'var(--text-primary)', 
               padding: '10px 12px',
               fontSize: '13px'
             }}
@@ -897,7 +897,7 @@ export default function ClientsPage() {
         
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
           {/* Переключатель вида */}
-          <div style={{ display: 'flex', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-color)', borderRadius: '10px', padding: '2px' }}>
+          <div style={{ display: 'flex', background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '10px', padding: '2px' }}>
             <button
               type="button"
               onClick={() => changeViewMode('grid')}
@@ -943,7 +943,7 @@ export default function ClientsPage() {
 
       {/* Список клиентов */}
       {isLoading ? (
-        <div style={{ display: 'flex', justifyContent: 'center', padding: '60px', color: '#9ca3af' }}>
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '60px', color: 'var(--text-muted)' }}>
           <Loader className="spinner" size={24} style={{ color: '#06b6d4' }} />
           <span style={{ marginLeft: '10px' }}>Загрузка VPN-клиентов...</span>
         </div>
@@ -998,7 +998,7 @@ export default function ClientsPage() {
                     {/* Сервера / Ноды (Из 3XUI) */}
                     {client.nodes && client.nodes.length > 0 && (
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '10px', alignItems: 'center' }}>
-                        <span style={{ fontSize: '9px', color: '#6b7280', textTransform: 'uppercase', fontWeight: 700, marginRight: '2px' }}>Сервера:</span>
+                        <span style={{ fontSize: '9px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700, marginRight: '2px' }}>Сервера:</span>
                         {client.nodes.map((node, i) => (
                           <span key={i} style={{ fontSize: '9px', background: 'rgba(6, 182, 212, 0.08)', border: '1px solid rgba(6, 182, 212, 0.15)', color: '#22d3ee', padding: '2px 5px', borderRadius: '4px', fontWeight: 600 }}>
                             {node}
@@ -1021,7 +1021,7 @@ export default function ClientsPage() {
                   </div>
 
                   <div className="client-footer">
-                    <div style={{ fontSize: '10px', color: '#6b7280' }}>
+                    <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
                       UUID: {client.vpnUuid.substring(0, 8)}...
                     </div>
 
@@ -1097,7 +1097,7 @@ export default function ClientsPage() {
                             ))}
                           </div>
                         ) : (
-                          <span style={{ color: '#6b7280', fontSize: '11px' }}>нет</span>
+                          <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>нет</span>
                         )}
                       </td>
                       <td>
@@ -1140,7 +1140,7 @@ export default function ClientsPage() {
           </div>
         )
       ) : (
-        <div className="no-data" style={{ padding: '60px', textAlign: 'center', color: '#6b7280', fontSize: '13px' }}>
+        <div className="no-data" style={{ padding: '60px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>
           Пользователи не найдены. Выдайте первый доступ кнопкой выше!
         </div>
       )}
@@ -1214,7 +1214,7 @@ export default function ClientsPage() {
               </label>
 
               {hasCustomLimits && (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', background: 'rgba(0,0,0,0.15)', padding: '15px', borderRadius: '10px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', background: 'var(--border-color)', padding: '15px', borderRadius: '10px' }}>
                   <div className="form-group">
                     <label className="form-label" style={{ fontSize: '10px' }}>Лимит трафика (GB)</label>
                     <input
@@ -1311,7 +1311,7 @@ export default function ClientsPage() {
             </div>
 
             {isLoadingKeys ? (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '40px', gap: '15px', color: '#9ca3af' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '40px', gap: '15px', color: 'var(--text-muted)' }}>
                 <Loader className="spinner" size={24} style={{ color: '#06b6d4' }} />
                 <span>Генерация конфигураций и QR-кода...</span>
               </div>
@@ -1358,9 +1358,9 @@ export default function ClientsPage() {
                       const nodeName = link.includes('#') ? decodeURIComponent(link.split('#')[1]).split('_')[0] : `Сервер ${idx + 1}`;
                       return (
                         <div key={idx} className="raw-config-item">
-                          <span style={{ color: '#fff', fontWeight: 600 }}>{nodeName} ({proto})</span>
+                          <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{nodeName} ({proto})</span>
                           <span 
-                            style={{ color: '#06b6d4', cursor: 'pointer', fontWeight: 700 }}
+                            style={{ color: 'var(--accent-cyan)', cursor: 'pointer', fontWeight: 700 }}
                             onClick={() => copyToClipboard(link, 'Конфигурация скопирована!')}
                           >
                             Копировать

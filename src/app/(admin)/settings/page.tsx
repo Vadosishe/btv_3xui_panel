@@ -316,8 +316,8 @@ export default function SettingsPage() {
           gap: 12px;
           font-size: 16px;
           font-weight: 700;
-          color: #fff;
-          border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+          color: var(--text-primary);
+          border-bottom: 1px solid var(--border-color);
           padding-bottom: 12px;
         }
 
@@ -346,27 +346,27 @@ export default function SettingsPage() {
         .form-label {
           font-size: 11px;
           font-weight: 600;
-          color: #9ca3af;
+          color: var(--text-muted);
           text-transform: uppercase;
           letter-spacing: 0.5px;
         }
 
         .form-input {
-          background: rgba(0,0,0,0.3);
-          border: 1px solid rgba(255,255,255,0.08);
+          background: var(--bg-card);
+          border: 1px solid var(--border-color);
           border-radius: 10px;
           padding: 12px;
-          color: #fff;
+          color: var(--text-primary);
           font-size: 14px;
         }
 
         .form-input:focus {
-          border-color: #06b6d4;
+          border-color: var(--accent-cyan);
         }
 
         .help-text {
           font-size: 11px;
-          color: #6b7280;
+          color: var(--text-muted);
           line-height: 1.4;
         }
 
@@ -392,9 +392,9 @@ export default function SettingsPage() {
         }
 
         .btn-backup {
-          background: rgba(255, 255, 255, 0.05);
-          border: 1px solid rgba(255, 255, 255, 0.08);
-          color: #e5e7eb;
+          background: var(--border-color);
+          border: 1px solid var(--border-color);
+          color: var(--text-secondary);
           padding: 12px;
           border-radius: 10px;
           font-size: 14px;
@@ -408,8 +408,8 @@ export default function SettingsPage() {
         }
 
         .btn-backup:hover {
-          background: rgba(255, 255, 255, 0.08);
-          color: #fff;
+          background: var(--border-hover);
+          color: var(--text-primary);
         }
 
         .btn-test-connection {
