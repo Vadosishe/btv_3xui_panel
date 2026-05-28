@@ -106,12 +106,13 @@ export async function GET(
         const inbounds = await xuiGetInbounds();
         const templateInboundIds: number[] = JSON.parse(client.template.inboundIdsJson || '[]');
 
+        const clientFlow = client.flow !== null ? client.flow : (client.template.flow || '');
         for (const inboundId of templateInboundIds) {
           const inbound = inbounds.find(i => i.id === inboundId);
           if (inbound) {
             const inboundNodeId = inbound.nodeId !== undefined ? String(inbound.nodeId) : '0';
             const nodeDomain = nodeDomains[inboundNodeId] || nodeDomains['0'] || 'vpn.btw.com';
-            const link = generateConfigLink(inbound, client.vpnUuid, client.email, nodeDomain);
+            const link = generateConfigLink(inbound, client.vpnUuid, client.email, nodeDomain, clientFlow);
             if (link) configLinks.push(link);
           }
         }
@@ -137,12 +138,13 @@ export async function GET(
     const templateInboundIds: number[] = JSON.parse(client.template.inboundIdsJson || '[]');
     let configs: string[] = [];
 
+    const clientFlow = client.flow !== null ? client.flow : (client.template.flow || '');
     for (const inboundId of templateInboundIds) {
       const inbound = inbounds.find(i => i.id === inboundId);
       if (inbound) {
         const inboundNodeId = inbound.nodeId !== undefined ? String(inbound.nodeId) : '0';
         const nodeDomain = nodeDomains[inboundNodeId] || nodeDomains['0'] || 'vpn.btw.com';
-        const link = generateConfigLink(inbound, client.vpnUuid, client.email, nodeDomain);
+        const link = generateConfigLink(inbound, client.vpnUuid, client.email, nodeDomain, clientFlow);
         if (link) configs.push(link);
       }
     }

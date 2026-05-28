@@ -55,7 +55,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
           const inboundNodeId = inbound.nodeId !== undefined ? String(inbound.nodeId) : '0';
           const nodeDomain = nodeDomains[inboundNodeId] || defaultDomain;
 
-          const link = generateConfigLink(inbound, client.vpnUuid, client.email, nodeDomain);
+          const clientFlow = client.flow !== null ? client.flow : (client.template.flow || '');
+          const link = generateConfigLink(inbound, client.vpnUuid, client.email, nodeDomain, clientFlow);
           if (link) {
             configLinks.push(link);
           }

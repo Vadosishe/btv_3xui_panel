@@ -214,7 +214,8 @@ export function generateConfigLink(
   inbound: any,
   clientUuid: string,
   clientEmail: string,
-  customDomainOrIp: string
+  customDomainOrIp: string,
+  customFlow?: string | null
 ): string {
   const protocol = inbound.protocol.toLowerCase();
   const port = inbound.port;
@@ -248,7 +249,11 @@ export function generateConfigLink(
       link += `&sni=${encodeURIComponent(sni)}&pbk=${encodeURIComponent(pbk)}&fp=${fp}`;
       if (sid) link += `&sid=${sid}`;
       if (spiderX) link += `&spx=${encodeURIComponent(spiderX)}`;
-      link += `&flow=xtls-rprx-vision`; // Стандартный flow для Reality
+      
+      const flowVal = customFlow !== undefined && customFlow !== null ? customFlow.trim() : 'xtls-rprx-vision';
+      if (flowVal && flowVal !== 'none') {
+        link += `&flow=${flowVal}`;
+      }
     } else if (security === 'tls') {
       const tlsSettings = streamSettings.tlsSettings || {};
       const sni = tlsSettings.serverName || '';
