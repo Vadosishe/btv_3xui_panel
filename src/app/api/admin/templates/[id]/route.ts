@@ -36,7 +36,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     }
 
     const { id } = await params;
-    const { name, description, inboundIds, trafficLimitGB, limitIp, durationDays } = await req.json();
+    const { name, description, inboundIds, trafficLimitGB, limitIp, durationDays, flow } = await req.json();
 
     if (!name || name.trim() === '') {
       return NextResponse.json({ success: false, error: 'Название шаблона обязательно' }, { status: 400 });
@@ -73,6 +73,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         trafficLimitGB: Number(trafficLimitGB) || 0,
         limitIp: Number(limitIp) || 0,
         durationDays: Number(durationDays) || 30,
+        flow: flow?.trim() || "",
       },
     });
 

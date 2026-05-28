@@ -13,6 +13,9 @@ import {
   Loader,
   CheckCircle,
   HelpCircle,
+  Users,
+  Trash2,
+  Plus,
 } from 'lucide-react';
 
 export default function SettingsPage() {
@@ -40,13 +43,42 @@ export default function SettingsPage() {
   const [testError, setTestError] = useState<string | null>(null);
   const [testSuccess, setTestSuccess] = useState<string | null>(null);
 
-  // Загрузить текущие настройки
+  // Состояния для управления администраторами
+  const [admins, setAdmins] = useState<any[]>([]);
+  const [currentAdminId, setCurrentAdminId] = useState('');
+  const [newAdminName, setNewAdminName] = useState('');
+  const [newAdminEmail, setNewAdminEmail] = useState('');
+  const [newAdminPassword, setNewAdminPassword] = useState('');
+  const [isAddingAdmin, setIsAddingAdmin] = useState(false);
+  const [isDeletingAdmin, setIsDeletingAdmin] = useState(false);
+  const [adminError, setAdminError] = useState<string | null>(null);
+  const [adminSuccess, setAdminSuccess] = useState<string | null>(null);
+
+  // Получить список администраторов
+  const handleFetchAdmins = async () => {
+    try {
+      const res = await fetch('/api/admin/admins');
+      if (res.ok) {
+        const data = await res.json();
+        setAdmins(data.admins || []);
+      }
+    } catch (e) {
+      console.error('Failed to fetch admins:', e);
+    }
+  };
+
+  // Загрузить текущие настройки и список администраторов
   useEffect(() => {
-    async function loadSettings() {
+    async function loadSettingsAndAdmins() {
       try {
-        const res = await fetch('/api/admin/settings');
-        if (res.ok) {
-          const data = await res.json();
+        const [settingsRes, adminsRes, meRes] = await Promise.all([
+          fetch('/api/admin/settings'),
+          fetch('/api/admin/admins'),
+          fetch('/api/auth/me'),
+        ]);
+
+        if (settingsRes.ok) {
+          const data = await settingsRes.json();
           const s = data.settings || {};
 
           setXuiScheme(s.xui_scheme || 'http');
@@ -61,14 +93,26 @@ export default function SettingsPage() {
           setTgAdminChatIds(s.tg_admin_chat_ids || '');
           setSyncInterval(s.sync_interval_minutes || '15');
         }
+
+        if (adminsRes.ok) {
+          const data = await adminsRes.json();
+          setAdmins(data.admins || []);
+        }
+
+        if (meRes.ok) {
+          const data = await meRes.json();
+          if (data.success && data.admin) {
+            setCurrentAdminId(data.admin.id);
+          }
+        }
       } catch (e) {
-        console.error('Failed to load settings:', e);
+        console.error('Failed to load settings or admins:', e);
       } finally {
         setIsLoading(false);
       }
     }
 
-    loadSettings();
+    loadSettingsAndAdmins();
   }, []);
 
   // Сохранить настройки
@@ -102,7 +146,6 @@ export default function SettingsPage() {
       const data = await res.json();
       if (res.ok && data.success) {
         setSuccess('Настройки успешно обновлены и сохранены в PostgreSQL!');
-        // Скроллим вверх для отображения плашки успеха
         window.scrollTo({ top: 0, behavior: 'smooth' });
       } else {
         setError(data.error || 'Ошибка при сохранении настроек');
@@ -146,6 +189,68 @@ export default function SettingsPage() {
       setTestError('Ошибка сети при проверке связи. Убедитесь, что сервер доступен.');
     } finally {
       setIsTesting(false);
+    }
+  };
+
+  // Удалить администратора
+  const handleDeleteAdmin = async (id: string, name: string) => {
+    if (!confirm(`Вы действительно хотите удалить администратора ${name}?`)) return;
+    setIsDeletingAdmin(true);
+    setAdminError(null);
+    setAdminSuccess(null);
+    try {
+      const res = await fetch(`/api/admin/admins/${id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setAdminSuccess('Администратор успешно удален!');
+        handleFetchAdmins();
+      } else {
+        setAdminError(data.error || 'Ошибка при удалении администратора');
+      }
+    } catch (err) {
+      setAdminError('Ошибка сети при удалении администратора');
+    } finally {
+      setIsDeletingAdmin(false);
+    }
+  };
+
+  // Добавить администратора
+  const handleAddAdmin = async () => {
+    if (!newAdminName.trim() || !newAdminEmail.trim() || !newAdminPassword) {
+      setAdminError('Пожалуйста, заполните все поля');
+      return;
+    }
+    if (newAdminPassword.length < 6) {
+      setAdminError('Пароль должен быть не менее 6 символов');
+      return;
+    }
+    setIsAddingAdmin(true);
+    setAdminError(null);
+    setAdminSuccess(null);
+    try {
+      const res = await fetch('/api/admin/admins', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newAdminName,
+          email: newAdminEmail,
+          password: newAdminPassword,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setAdminSuccess('Новый администратор успешно зарегистрирован!');
+        setNewAdminName('');
+        setNewAdminEmail('');
+        setNewAdminPassword('');
+        handleFetchAdmins();
+      } else {
+        setAdminError(data.error || 'Ошибка при создании администратора');
+      }
+    } catch (err) {
+      setAdminError('Ошибка сети при создании администратора');
+    } finally {
+      setIsAddingAdmin(false);
     }
   };
 
@@ -589,6 +694,128 @@ export default function SettingsPage() {
         </button>
 
       </form>
+
+      {/* --- СЕКЦИЯ: УПРАВЛЕНИЕ АДМИНИСТРАТОРАМИ (Вне основной формы настроек) --- */}
+      <div className="settings-section glass-panel" style={{ marginTop: '25px' }}>
+        <div className="section-header">
+          <Users size={18} className="section-icon" style={{ color: '#a855f7' }} />
+          <span>Управление администраторами</span>
+        </div>
+
+        {/* Список администраторов */}
+        <div className="admins-list" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          {admins.map((adm) => (
+            <div 
+              key={adm.id} 
+              style={{ 
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                alignItems: 'center', 
+                background: 'rgba(0,0,0,0.2)', 
+                padding: '12px 16px', 
+                borderRadius: '10px', 
+                border: '1px solid rgba(255,255,255,0.04)' 
+              }}
+            >
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <span style={{ fontSize: '14px', fontWeight: 600, color: '#fff' }}>{adm.name}</span>
+                <span style={{ fontSize: '12px', color: '#9ca3af' }}>{adm.email}</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                <span style={{ fontSize: '11px', color: '#6b7280' }}>
+                  {new Date(adm.createdAt).toLocaleDateString('ru-RU')}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleDeleteAdmin(adm.id, adm.name)}
+                  disabled={adm.id === currentAdminId || isDeletingAdmin}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: adm.id === currentAdminId ? '#4b5563' : '#ef4444',
+                    cursor: adm.id === currentAdminId ? 'not-allowed' : 'pointer',
+                    opacity: adm.id === currentAdminId ? 0.4 : 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                  }}
+                  title={adm.id === currentAdminId ? "Вы не можете удалить себя" : "Удалить администратора"}
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Форма добавления администратора */}
+        <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '20px', marginTop: '10px' }}>
+          <h4 style={{ fontSize: '13px', fontWeight: 700, color: '#fff', marginBottom: '15px' }}>Пригласить нового администратора</h4>
+          
+          {adminError && (
+            <div className="alert-error" style={{ marginBottom: '15px', padding: '10px 12px', fontSize: '13px' }}>
+              <AlertTriangle size={16} />
+              <span>{adminError}</span>
+            </div>
+          )}
+
+          {adminSuccess && (
+            <div className="alert-success" style={{ marginBottom: '15px', padding: '10px 12px', fontSize: '13px' }}>
+              <CheckCircle size={16} />
+              <span>{adminSuccess}</span>
+            </div>
+          )}
+
+          <div className="form-grid" style={{ marginBottom: '15px' }}>
+            <div className="form-group">
+              <label className="form-label">Имя</label>
+              <input
+                type="text"
+                className="form-input"
+                placeholder="Например: Влад"
+                value={newAdminName}
+                onChange={(e) => setNewAdminName(e.target.value)}
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Email</label>
+              <input
+                type="email"
+                className="form-input"
+                placeholder="admin2@btw.vpn"
+                value={newAdminEmail}
+                onChange={(e) => setNewAdminEmail(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="form-group" style={{ marginBottom: '15px' }}>
+            <label className="form-label">Пароль</label>
+            <input
+              type="password"
+              className="form-input"
+              placeholder="Минимум 6 символов"
+              value={newAdminPassword}
+              onChange={(e) => setNewAdminPassword(e.target.value)}
+            />
+          </div>
+
+          <button
+            type="button"
+            className="btn-test-connection"
+            onClick={handleAddAdmin}
+            disabled={isAddingAdmin}
+            style={{ 
+              background: 'rgba(168, 85, 247, 0.1)', 
+              borderColor: 'rgba(168, 85, 247, 0.3)', 
+              color: '#a855f7',
+              marginTop: '10px'
+            }}
+          >
+            {isAddingAdmin ? <Loader size={16} className="spinner" /> : <Plus size={16} />}
+            <span>{isAddingAdmin ? 'Добавление...' : 'Создать учетную запись'}</span>
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

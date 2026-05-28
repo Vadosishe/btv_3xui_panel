@@ -34,7 +34,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: 'Не авторизован' }, { status: 401 });
     }
 
-    const { name, description, inboundIds, trafficLimitGB, limitIp, durationDays } = await req.json();
+    const { name, description, inboundIds, trafficLimitGB, limitIp, durationDays, flow } = await req.json();
 
     if (!name || name.trim() === '') {
       return NextResponse.json({ success: false, error: 'Название шаблона обязательно' }, { status: 400 });
@@ -61,6 +61,7 @@ export async function POST(req: Request) {
         trafficLimitGB: Number(trafficLimitGB) || 0,
         limitIp: Number(limitIp) || 0,
         durationDays: Number(durationDays) || 30,
+        flow: flow?.trim() || "",
       },
     });
 

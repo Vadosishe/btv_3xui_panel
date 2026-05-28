@@ -45,12 +45,14 @@ interface Client {
   trafficLimitGB: number | null;
   limitIp: number | null;
   expiresAt: string | null;
+  flow: string | null;
+  tgId: string | null;
   usedTrafficBytes: string;
   lastSyncedAt: string | null;
   companyId: string;
   templateId: string;
   company: { name: string };
-  template: { name: string; trafficLimitGB: number; limitIp: number; durationDays: number };
+  template: { name: string; trafficLimitGB: number; limitIp: number; durationDays: number; flow?: string };
   createdAt: string;
 }
 
@@ -65,6 +67,9 @@ export default function ClientsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterCompany, setFilterCompany] = useState('');
   const [filterTemplate, setFilterTemplate] = useState('');
+  const [filterStatus, setFilterStatus] = useState(''); // '', 'active', 'inactive'
+  const [sortBy, setSortBy] = useState('name'); // 'name', 'traffic', 'expiry', 'status'
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
 
   // Форма добавления/редактирования
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -77,6 +82,8 @@ export default function ClientsPage() {
   const [customTrafficLimitGB, setCustomTrafficLimitGB] = useState<number | ''>('');
   const [customLimitIp, setCustomLimitIp] = useState<number | ''>('');
   const [customExpiresAt, setCustomExpiresAt] = useState('');
+  const [customFlow, setCustomFlow] = useState('');
+  const [customTgId, setCustomTgId] = useState('');
   const [isActive, setIsActive] = useState(true);
 
   const [error, setError] = useState<string | null>(null);
@@ -131,6 +138,8 @@ export default function ClientsPage() {
     setCustomTrafficLimitGB('');
     setCustomLimitIp('');
     setCustomExpiresAt('');
+    setCustomFlow('');
+    setCustomTgId('');
     setIsActive(true);
     setError(null);
     setIsModalOpen(true);
@@ -142,11 +151,13 @@ export default function ClientsPage() {
     setCompanyId(client.companyId);
     setTemplateId(client.templateId);
     
-    const isCustom = client.trafficLimitGB !== null || client.limitIp !== null || client.expiresAt !== null;
+    const isCustom = client.trafficLimitGB !== null || client.limitIp !== null || client.expiresAt !== null || client.flow !== null || client.tgId !== null;
     setHasCustomLimits(isCustom);
     setCustomTrafficLimitGB(client.trafficLimitGB !== null ? client.trafficLimitGB : '');
     setCustomLimitIp(client.limitIp !== null ? client.limitIp : '');
     setCustomExpiresAt(client.expiresAt ? client.expiresAt.substring(0, 10) : '');
+    setCustomFlow(client.flow !== null ? client.flow : '');
+    setCustomTgId(client.tgId !== null ? client.tgId : '');
     setIsActive(client.isActive);
     setError(null);
     setIsModalOpen(true);
@@ -196,6 +207,8 @@ export default function ClientsPage() {
       customTrafficLimitGB: hasCustomLimits && customTrafficLimitGB !== '' ? Number(customTrafficLimitGB) : null,
       customLimitIp: hasCustomLimits && customLimitIp !== '' ? Number(customLimitIp) : null,
       customExpiresAt: hasCustomLimits && customExpiresAt ? new Date(customExpiresAt).toISOString() : null,
+      customFlow: hasCustomLimits && customFlow !== '' ? customFlow : null,
+      customTgId: hasCustomLimits && customTgId !== '' ? customTgId : null,
       isActive,
     };
 
@@ -244,14 +257,37 @@ export default function ClientsPage() {
     alert(msg);
   };
 
-  // Фильтр списка
-  const filteredClients = clients.filter(c => {
-    const matchesSearch = c.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          c.email.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCompany = filterCompany === '' || c.companyId === filterCompany;
-    const matchesTemplate = filterTemplate === '' || c.templateId === filterTemplate;
-    return matchesSearch && matchesCompany && matchesTemplate;
-  });
+  // Фильтр и сортировка списка сотрудников
+  const filteredClients = clients
+    .filter(c => {
+      const matchesSearch = c.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                            c.email.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesCompany = filterCompany === '' || c.companyId === filterCompany;
+      const matchesTemplate = filterTemplate === '' || c.templateId === filterTemplate;
+      
+      const matchesStatus = filterStatus === '' || 
+        (filterStatus === 'active' && c.isActive) || 
+        (filterStatus === 'inactive' && !c.isActive);
+
+      return matchesSearch && matchesCompany && matchesTemplate && matchesStatus;
+    })
+    .sort((a, b) => {
+      let comparison = 0;
+      if (sortBy === 'name') {
+        comparison = a.name.localeCompare(b.name);
+      } else if (sortBy === 'traffic') {
+        const trafficA = BigInt(a.usedTrafficBytes || 0);
+        const trafficB = BigInt(b.usedTrafficBytes || 0);
+        comparison = trafficA < trafficB ? -1 : trafficA > trafficB ? 1 : 0;
+      } else if (sortBy === 'expiry') {
+        const dateA = a.expiresAt ? new Date(a.expiresAt).getTime() : 0;
+        const dateB = b.expiresAt ? new Date(b.expiresAt).getTime() : 0;
+        comparison = dateA - dateB;
+      } else if (sortBy === 'status') {
+        comparison = (a.isActive ? 1 : 0) - (b.isActive ? 1 : 0);
+      }
+      return sortOrder === 'asc' ? comparison : -comparison;
+    });
 
   return (
     <div className="clients-container">
@@ -702,6 +738,45 @@ export default function ClientsPage() {
             <option value="">Все шаблоны</option>
             {templates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
           </select>
+
+          <select 
+            className="filter-select" 
+            value={filterStatus} 
+            onChange={(e) => setFilterStatus(e.target.value)}
+          >
+            <option value="">Все статусы</option>
+            <option value="active">Активные</option>
+            <option value="inactive">Неактивные</option>
+          </select>
+
+          <select 
+            className="filter-select" 
+            value={sortBy} 
+            onChange={(e) => setSortBy(e.target.value)}
+          >
+            <option value="name">Сортировка: Имя</option>
+            <option value="traffic">Сортировка: Трафик</option>
+            <option value="expiry">Сортировка: Срок действия</option>
+            <option value="status">Сортировка: Статус</option>
+          </select>
+
+          <button 
+            type="button"
+            className="filter-select"
+            onClick={() => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
+            style={{ 
+              cursor: 'pointer', 
+              textAlign: 'center', 
+              background: 'rgba(0,0,0,0.3)', 
+              border: '1px solid rgba(255,255,255,0.08)', 
+              borderRadius: '10px', 
+              color: '#fff', 
+              padding: '10px 12px',
+              fontSize: '13px'
+            }}
+          >
+            {sortOrder === 'asc' ? '▲ По возр.' : '▼ По убыв.'}
+          </button>
         </div>
         
         <button className="btn-add" onClick={openAddModal}>
@@ -898,6 +973,28 @@ export default function ClientsPage() {
                       className="form-input"
                       value={customExpiresAt}
                       onChange={(e) => setCustomExpiresAt(e.target.value)}
+                    />
+                  </div>
+                  <div className="form-group" style={{ gridColumn: 'span 2' }}>
+                    <label className="form-label" style={{ fontSize: '10px' }}>Параметр Flow (Reality VLESS)</label>
+                    <select
+                      className="form-input"
+                      value={customFlow}
+                      onChange={(e) => setCustomFlow(e.target.value)}
+                      style={{ appearance: 'none', background: 'rgba(0,0,0,0.3) url("data:image/svg+xml;utf8,<svg fill=\'%23ffffff\' height=\'24\' viewBox=\'0 0 24 24\' width=\'24\' xmlns=\'http://www.w3.org/2000/svg\'><path d=\'M7 10l5 5 5-5z\'/><path d=\'M0 0h24v24H0z\' fill=\'none\'/></svg>") no-repeat right 12px center', cursor: 'pointer' }}
+                    >
+                      <option value="" style={{ background: '#111827', color: '#fff' }}>Использовать Flow из шаблона</option>
+                      <option value="xtls-rprx-vision" style={{ background: '#111827', color: '#fff' }}>xtls-rprx-vision (Рекомендуется для Reality)</option>
+                    </select>
+                  </div>
+                  <div className="form-group" style={{ gridColumn: 'span 2' }}>
+                    <label className="form-label" style={{ fontSize: '10px' }}>Telegram ID (для алертов 3XUI)</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      placeholder="Например: 123456789"
+                      value={customTgId}
+                      onChange={(e) => setCustomTgId(e.target.value)}
                     />
                   </div>
                 </div>

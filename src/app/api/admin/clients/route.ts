@@ -52,6 +52,8 @@ export async function POST(req: Request) {
       customTrafficLimitGB,
       customLimitIp,
       customExpiresAt,
+      customFlow,
+      customTgId,
     } = await req.json();
 
     // Валидация входных данных
@@ -89,6 +91,14 @@ export async function POST(req: Request) {
     const limitIp = customLimitIp !== undefined && customLimitIp !== null
       ? Number(customLimitIp)
       : template.limitIp;
+
+    const flow = customFlow !== undefined && customFlow !== null
+      ? customFlow.trim()
+      : template.flow || "";
+
+    const tgId = customTgId !== undefined && customTgId !== null
+      ? customTgId.trim()
+      : "";
 
     // Срок действия
     let expiresAt: Date | null = null;
@@ -134,6 +144,8 @@ export async function POST(req: Request) {
           totalGB: Number(trafficBytesLimit), // В 3XUI отправляется число байт
           expiryTime: expiryTimeMs,
           enable: true,
+          flow: flow,
+          tgId: tgId,
         });
 
         if (added) {
@@ -173,6 +185,8 @@ export async function POST(req: Request) {
         trafficLimitGB: customTrafficLimitGB !== undefined && customTrafficLimitGB !== null ? Number(customTrafficLimitGB) : null,
         limitIp: customLimitIp !== undefined && customLimitIp !== null ? Number(customLimitIp) : null,
         expiresAt: expiresAt,
+        flow: customFlow !== undefined && customFlow !== null ? customFlow.trim() : null,
+        tgId: customTgId !== undefined && customTgId !== null ? customTgId.trim() : null,
         companyId: companyId,
         templateId: templateId,
       },

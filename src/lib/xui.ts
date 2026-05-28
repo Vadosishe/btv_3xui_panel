@@ -116,6 +116,8 @@ export async function xuiAddClient(
     totalGB?: number;
     expiryTime?: number;
     enable?: boolean;
+    flow?: string;
+    tgId?: string;
   }
 ): Promise<boolean> {
   // Настройки клиента
@@ -126,8 +128,9 @@ export async function xuiAddClient(
     totalGB: client.totalGB ?? 0, // В байтах в 3XUI, обработка должна быть на уровне вызова
     expiryTime: client.expiryTime ?? 0, // Unix timestamp в миллисекундах
     enable: client.enable ?? true,
-    tgId: '',
+    tgId: client.tgId ?? '',
     subId: '',
+    flow: client.flow ?? '',
   };
 
   const body = {
@@ -162,6 +165,8 @@ export async function xuiUpdateClient(
     totalGB?: number;
     expiryTime?: number;
     enable?: boolean;
+    flow?: string;
+    tgId?: string;
   }
 ): Promise<boolean> {
   const clientPayload = {
@@ -171,6 +176,8 @@ export async function xuiUpdateClient(
     totalGB: client.totalGB ?? 0,
     expiryTime: client.expiryTime ?? 0,
     enable: client.enable ?? true,
+    flow: client.flow ?? '',
+    tgId: client.tgId ?? '',
   };
 
   const body = {

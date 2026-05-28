@@ -8,8 +8,10 @@ export async function GET(
 ) {
   try {
     const { token } = await params;
+    const { searchParams } = new URL(req.url);
+    const format = searchParams.get('format');
     const acceptHeader = req.headers.get('accept') || '';
-    const isBrowser = acceptHeader.includes('text/html');
+    const isBrowser = acceptHeader.includes('text/html') && !format;
 
     // 1. Ищем клиента по токену подписки
     const client = await prisma.client.findUnique({
@@ -32,6 +34,36 @@ export async function GET(
     const isClientActive = client?.isActive ?? false;
 
     const isActive = client && isClientActive && isCompanyActive && !isExpired;
+
+    // --- СЦЕНАРИЙ 3: Запрос конфигурации AmneziaVPN (Архитектурный плейсхолдер) ---
+    if (format === 'amnezia') {
+      if (!client) {
+        return new NextResponse(JSON.stringify({ error: 'Подписка не найдена' }), {
+          status: 404,
+          headers: { 'Content-Type': 'application/json; charset=utf-8' },
+        });
+      }
+      if (!isActive) {
+        return new NextResponse(JSON.stringify({ error: 'Подписка недействительна или заблокирована' }), {
+          status: 403,
+          headers: { 'Content-Type': 'application/json; charset=utf-8' },
+        });
+      }
+
+      const nodeDomains = await xuiGetNodeDomains();
+      const defaultDomain = settingsMap.get('xui_address') || 'vpn.btw.com';
+      const nodeDomain = nodeDomains['0'] || defaultDomain;
+
+      const amneziaConfig = generateAmneziaMockConfig(client, nodeDomain);
+
+      return new NextResponse(amneziaConfig, {
+        headers: {
+          'Content-Type': 'application/json; charset=utf-8',
+          'Content-Disposition': `attachment; filename="btw-vpn-${client.vpnUuid.substring(0, 8)}.vpn"`,
+          'Cache-Control': 'no-store',
+        },
+      });
+    }
 
     // --- СЦЕНАРИЙ 1: Запрос из БРАУЗЕРА (показываем красивый веб-портал) ---
     if (isBrowser) {
@@ -486,10 +518,26 @@ function renderSubscriptionPortal(
             <a href="${supportLink}" class="btn-tg" target="_blank">Связаться с техподдержкой</a>
           </div>
 
+          <!-- Секция AmneziaVPN (Архитектурный плейсхолдер) -->
+          <div class="configs-section" style="border-top: 1px solid rgba(255,255,255,0.06); margin-top: 20px; padding-top: 20px;">
+            <div style="font-size: 11px; color: #9ca3af; margin-bottom: 12px; text-align: center; display: flex; align-items: center; justify-content: center; gap: 6px;">
+              <span>🛡️ Резервный канал AmneziaVPN</span>
+            </div>
+            <div style="background: rgba(168, 85, 247, 0.05); border: 1px solid rgba(168, 85, 247, 0.15); padding: 15px; border-radius: 12px; text-align: left; font-size: 12px; color: #d8b4fe; line-height: 1.5; margin-bottom: 12px;">
+              <strong style="color: #fff; display: block; margin-bottom: 4px;">Как подключиться:</strong>
+              1. Скачайте файл конфигурации по кнопке ниже.<br/>
+              2. Установите официальный клиент <strong>AmneziaVPN</strong>.<br/>
+              3. Выберите «Импортировать резервную копию или файл настройки» и откройте скачанный <strong>.vpn</strong> файл.
+            </div>
+            <button class="btn-tg" style="width: 100%; display: block; border-color: rgba(168, 85, 247, 0.4); color: #e9d5ff; background: rgba(168, 85, 247, 0.12); cursor: pointer;" onclick="downloadAmneziaConfig()">
+              📥 Скачать конфиг AmneziaVPN (.vpn)
+            </button>
+          </div>
+
           ${configLinks.length > 0 ? `
             <div class="configs-section">
               <div style="font-size: 11px; color: #6b7280; margin-bottom: 10px; text-align: center;">
-                Ключи для ручного импорта:
+                Ключи для ручного импорта VLESS:
               </div>
               ${configLinks.map((link, idx) => {
                 const proto = link.split('://')[0].toUpperCase();
@@ -530,8 +578,54 @@ function renderSubscriptionPortal(
           navigator.clipboard.writeText(configLinks[idx]);
           showToast('VPN ключ скопирован!');
         }
+
+        function downloadAmneziaConfig() {
+          window.location.href = window.location.pathname + '?format=amnezia';
+        }
       </script>
     </body>
     </html>
   `;
+}
+
+/**
+ * ARCHITECTURE PLACEHOLDER: Future integration with AmnesiaVPN.
+ * Generates a mock Amnesia connection profile (.vpn JSON format) for the client.
+ * Replace this mock implementation with active server API calls to the Amnesia management service.
+ */
+function generateAmneziaMockConfig(client: any, nodeDomain: string): string {
+  const amneziaProfile = {
+    description: `BTW VPN (Amnezia) - ${client.name}`,
+    hostName: nodeDomain,
+    userName: "admin",
+    port: 22,
+    sshKey: "-----BEGIN OPENSSH PRIVATE KEY-----\\n...\\n-----END OPENSSH PRIVATE KEY-----",
+    containers: [
+      {
+        container: "amnezia-wg",
+        enable: true,
+        port: 51820,
+        settings: {
+          privateKey: "MOCK_PRIVATE_KEY_WILL_BE_GENERATED_BY_AMNEZIA_SERVER",
+          publicKey: "MOCK_PUBLIC_KEY_WILL_BE_GENERATED_BY_AMNEZIA_SERVER",
+          ip: "10.0.8.2",
+          serverPublicKey: "MOCK_SERVER_PUBLIC_KEY_FROM_AMNEZIA_INSTALLED_CONTAINER",
+          presharedKey: "",
+          mtu: 1360,
+          dns: "1.1.1.1"
+        }
+      },
+      {
+        container: "amnezia-shadowsocks",
+        enable: true,
+        port: 8388,
+        settings: {
+          password: "MOCK_SHADOWSOCKS_PASSWORD",
+          cipher: "aes-256-gcm"
+        }
+      }
+    ]
+  };
+
+  return JSON.stringify(amneziaProfile, null, 2);
 }

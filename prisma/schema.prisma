@@ -41,6 +41,7 @@ model Template {
   trafficLimitGB Int      @default(0) // 0 - безлимит
   limitIp        Int      @default(0) // 0 - безлимит
   durationDays   Int      @default(30) // Срок действия по умолчанию
+  flow           String?  @default("") // Flow для Reality (например, "xtls-rprx-vision")
   clients        Client[]
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -59,7 +60,9 @@ model Client {
   trafficLimitGB    Int?
   limitIp           Int?
   expiresAt         DateTime?
-
+  flow              String?   @default("") // Переопределение Flow
+  tgId              String?   @default("") // Telegram ID для алертов 3XUI
+  
   // Статистика трафика (синхронизируется из 3XUI)
   usedTrafficBytes  BigInt    @default(0)
   lastSyncedAt      DateTime?

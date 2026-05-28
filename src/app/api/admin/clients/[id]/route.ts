@@ -108,6 +108,8 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       customTrafficLimitGB,
       customLimitIp,
       customExpiresAt,
+      customFlow,
+      customTgId,
       isActive,
     } = await req.json();
 
@@ -143,6 +145,14 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     const limitIp = customLimitIp !== undefined && customLimitIp !== null
       ? Number(customLimitIp)
       : newTemplate.limitIp;
+
+    const flow = customFlow !== undefined && customFlow !== null
+      ? customFlow.trim()
+      : newTemplate.flow || "";
+
+    const tgId = customTgId !== undefined && customTgId !== null
+      ? customTgId.trim()
+      : "";
 
     let expiresAt: Date | null = null;
     if (customExpiresAt) {
@@ -189,6 +199,8 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
             totalGB: Number(trafficBytesLimit),
             expiryTime: expiryTimeMs,
             enable: true,
+            flow: flow,
+            tgId: tgId,
           });
 
           if (added) {
@@ -229,6 +241,8 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         trafficLimitGB: customTrafficLimitGB !== undefined && customTrafficLimitGB !== null ? Number(customTrafficLimitGB) : null,
         limitIp: customLimitIp !== undefined && customLimitIp !== null ? Number(customLimitIp) : null,
         expiresAt: expiresAt,
+        flow: customFlow !== undefined && customFlow !== null ? customFlow.trim() : null,
+        tgId: customTgId !== undefined && customTgId !== null ? customTgId.trim() : null,
         isActive: isClientEnabled,
       },
     });

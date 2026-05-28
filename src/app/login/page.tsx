@@ -102,11 +102,6 @@ export default function LoginPage() {
             )}
           </button>
         </form>
-
-        <div className="info-box">
-          <strong>Первый запуск?</strong><br />
-          Просто введите email <code>admin@btw.vpn</code> и пароль <code>admin</code> для автоматического создания первой учетной записи.
-        </div>
       </div>
     </div>
   );

@@ -24,6 +24,7 @@ interface Template {
   trafficLimitGB: number;
   limitIp: number;
   durationDays: number;
+  flow?: string | null;
   _count?: { clients: number };
 }
 
@@ -48,6 +49,7 @@ export default function TemplatesPage() {
   const [trafficLimitGB, setTrafficLimitGB] = useState<number>(0);
   const [limitIp, setLimitIp] = useState<number>(0);
   const [durationDays, setDurationDays] = useState<number>(30);
+  const [flow, setFlow] = useState('');
   const [selectedInboundIds, setSelectedInboundIds] = useState<number[]>([]);
   
   const [error, setError] = useState<string | null>(null);
@@ -86,6 +88,7 @@ export default function TemplatesPage() {
     setTrafficLimitGB(0);
     setLimitIp(0);
     setDurationDays(30);
+    setFlow('');
     setSelectedInboundIds([]);
     setError(null);
     setIsModalOpen(true);
@@ -98,6 +101,7 @@ export default function TemplatesPage() {
     setTrafficLimitGB(template.trafficLimitGB);
     setLimitIp(template.limitIp);
     setDurationDays(template.durationDays);
+    setFlow(template.flow || '');
     
     try {
       setSelectedInboundIds(JSON.parse(template.inboundIdsJson));
@@ -143,6 +147,7 @@ export default function TemplatesPage() {
           trafficLimitGB,
           limitIp,
           durationDays,
+          flow,
         }),
       });
 
@@ -693,6 +698,22 @@ export default function TemplatesPage() {
                     required
                   />
                 </div>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Параметр Flow (VLESS Reality)</label>
+                <select
+                  className="form-input"
+                  value={flow}
+                  onChange={(e) => setFlow(e.target.value)}
+                  style={{ appearance: 'none', background: 'rgba(0,0,0,0.3) url("data:image/svg+xml;utf8,<svg fill=\'%23ffffff\' height=\'24\' viewBox=\'0 0 24 24\' width=\'24\' xmlns=\'http://www.w3.org/2000/svg\'><path d=\'M7 10l5 5 5-5z\'/><path d=\'M0 0h24v24H0z\' fill=\'none\'/></svg>") no-repeat right 12px center' }}
+                >
+                  <option value="" style={{ background: '#111827', color: '#fff' }}>Без Flow (По умолчанию)</option>
+                  <option value="xtls-rprx-vision" style={{ background: '#111827', color: '#fff' }}>xtls-rprx-vision (Рекомендуется для Reality)</option>
+                </select>
+                <span className="help-text" style={{ fontSize: '10px', marginTop: '2px', color: '#6b7280' }}>
+                  Для Reality VLESS укажите xtls-rprx-vision. Для остальных протоколов оставьте пустым.
+                </span>
               </div>
 
               {/* Секция выбора инбаундов с 3XUI */}
