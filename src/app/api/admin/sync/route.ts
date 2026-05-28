@@ -86,7 +86,21 @@ export async function POST() {
     let importCount = 0;
     let failedCount = 0;
 
-    let defaultCompanyId = '';
+    // Обеспечиваем наличие технической компании для импорта
+    let company = await prisma.company.findUnique({
+      where: { name: 'Импортированные (3XUI)' },
+    });
+    if (!company) {
+      company = await prisma.company.create({
+        data: {
+          name: 'Импортированные (3XUI)',
+          description: 'Техническая компания для клиентов, импортированных напрямую из 3XUI',
+          isActive: true,
+        },
+      });
+    }
+    const defaultCompanyId = company.id;
+
     let defaultTemplateId = '';
 
     // 4. Проходим по всем клиентам из 3XUI
@@ -95,13 +109,22 @@ export async function POST() {
       const totalUsedBytes = BigInt(xuiClient.up) + BigInt(xuiClient.down);
 
       if (dbClient) {
-        // --- ОБНОВЛЕНИЕ СУЩЕСТВУЮЩЕГО КЛИЕНТА ---
+        // --- ОБНОВЛЕНИЕ СУЩЕСТВУЮщего КЛИЕНТА ---
         try {
           const updateData: any = {
             usedTrafficBytes: totalUsedBytes,
             lastSyncedAt: new Date(),
             isActive: xuiClient.enable,
           };
+
+          // Автоматически очищаем старые суффиксы и восстанавливаем оригинальное имя с 3XUI при синхронизации
+          if (
+            dbClient.name.endsWith(' (3XUI)') || 
+            dbClient.name === 'Главный Администратор (3XUI)' || 
+            dbClient.companyId === defaultCompanyId
+          ) {
+            updateData.name = xuiClient.email;
+          }
 
           // Синхронизируем срок действия и лимит трафика только если они не переопределены индивидуально
           if (dbClient.expiresAt === null && xuiClient.expiryTime > 0) {
@@ -123,23 +146,6 @@ export async function POST() {
       } else {
         // --- АВТОИМПОРТ НОВОГО КЛИЕНТА ---
         try {
-          // Обеспечиваем наличие технической компании для импорта
-          if (!defaultCompanyId) {
-            let company = await prisma.company.findUnique({
-              where: { name: 'Импортированные (3XUI)' },
-            });
-            if (!company) {
-              company = await prisma.company.create({
-                data: {
-                  name: 'Импортированные (3XUI)',
-                  description: 'Техническая компания для клиентов, импортированных напрямую из 3XUI',
-                  isActive: true,
-                },
-              });
-            }
-            defaultCompanyId = company.id;
-          }
-
           // Обеспечиваем наличие технического шаблона для импорта
           if (!defaultTemplateId) {
             let template = await prisma.template.findUnique({
@@ -160,18 +166,8 @@ export async function POST() {
             defaultTemplateId = template.id;
           }
 
-          // Генерируем красивое имя
-          let displayName = xuiClient.email;
-          if (displayName.includes('@')) {
-            displayName = displayName.split('@')[0];
-          }
-          displayName = displayName.charAt(0).toUpperCase() + displayName.slice(1);
-          if (displayName.toLowerCase() === 'admins') {
-            displayName = 'Главный Администратор (3XUI)';
-          } else {
-            displayName = displayName + ' (3XUI)';
-          }
-
+          // Сохраняем имя в оригинальном виде из 3XUI
+          const displayName = xuiClient.email;
           const vpnUuid = xuiClient.uuid || crypto.randomUUID();
 
           await prisma.client.create({
