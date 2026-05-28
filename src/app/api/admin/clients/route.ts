@@ -18,7 +18,7 @@ export async function GET() {
           select: { name: true },
         },
         template: {
-          select: { name: true, trafficLimitGB: true, limitIp: true, durationDays: true },
+          select: { name: true, trafficLimitGB: true, limitIp: true, durationDays: true, inboundIdsJson: true },
         },
       },
       orderBy: { createdAt: 'desc' },
@@ -26,22 +26,39 @@ export async function GET() {
 
     // Получаем онлайн-клиентов с 3XUI
     let onlineEmails: string[] = [];
+    let inbounds: any[] = [];
     try {
-      const { xuiGetOnlineClients } = await import('@/lib/xui');
-      onlineEmails = await xuiGetOnlineClients();
+      const { xuiGetOnlineClients, xuiGetInbounds } = await import('@/lib/xui');
+      [onlineEmails, inbounds] = await Promise.all([
+        xuiGetOnlineClients(),
+        xuiGetInbounds(),
+      ]);
     } catch (e) {
-      console.warn('Failed to fetch online clients in GET clients route:', e);
+      console.warn('Failed to fetch online clients or inbounds in GET clients route:', e);
     }
 
     const onlineEmailsLower = onlineEmails.map(e => String(e).toLowerCase().trim());
+    const inboundMap = new Map(inbounds.map(i => [i.id, i.remark || i.protocol]));
 
     // Конвертируем BigInt в строку перед сериализацией JSON
-    const serializedClients = clients.map(client => ({
-      ...client,
-      usedTrafficBytes: client.usedTrafficBytes.toString(),
-      isOnline: onlineEmailsLower.includes(client.email.toLowerCase().trim()) || 
-                onlineEmailsLower.includes(client.vpnUuid.toLowerCase().trim()),
-    }));
+    const serializedClients = clients.map(client => {
+      let templateInboundIds: number[] = [];
+      try {
+        templateInboundIds = JSON.parse(client.template.inboundIdsJson || '[]');
+      } catch (e) {}
+
+      const nodeNames = templateInboundIds
+        .map(id => inboundMap.get(id))
+        .filter(Boolean) as string[];
+
+      return {
+        ...client,
+        usedTrafficBytes: client.usedTrafficBytes.toString(),
+        isOnline: onlineEmailsLower.includes(client.email.toLowerCase().trim()) || 
+                  onlineEmailsLower.includes(client.vpnUuid.toLowerCase().trim()),
+        nodes: nodeNames,
+      };
+    });
 
     return NextResponse.json({ success: true, clients: serializedClients });
   } catch (error: any) {

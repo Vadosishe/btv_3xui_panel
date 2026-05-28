@@ -48,6 +48,7 @@ interface Client {
   flow: string | null;
   tgId: string | null;
   isOnline?: boolean;
+  nodes?: string[];
   usedTrafficBytes: string;
   lastSyncedAt: string | null;
   companyId: string;
@@ -380,27 +381,27 @@ export default function ClientsPage() {
         /* Список карточек клиентов */
         .clients-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-          gap: 20px;
+          grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+          gap: 15px;
         }
 
         .client-card {
-          padding: 24px;
+          padding: 16px;
           display: flex;
           flex-direction: column;
           justify-content: space-between;
-          min-height: 250px;
+          min-height: 180px;
         }
 
         .client-header {
           display: flex;
           justify-content: space-between;
           align-items: flex-start;
-          margin-bottom: 15px;
+          margin-bottom: 10px;
         }
 
         .client-title {
-          font-size: 16px;
+          font-size: 15px;
           font-weight: 700;
           color: #f3f4f6;
         }
@@ -408,20 +409,20 @@ export default function ClientsPage() {
         .client-email {
           font-size: 11px;
           color: #6b7280;
-          margin-top: 3px;
+          margin-top: 2px;
         }
 
         .badges-row {
           display: flex;
-          gap: 8px;
-          margin-bottom: 15px;
+          gap: 6px;
+          margin-bottom: 10px;
           flex-wrap: wrap;
         }
 
         .badge {
           font-size: 10px;
           font-weight: 600;
-          padding: 3px 8px;
+          padding: 3px 6px;
           border-radius: 6px;
           display: flex;
           align-items: center;
@@ -434,12 +435,12 @@ export default function ClientsPage() {
         .limits-row {
           display: grid;
           grid-template-columns: 1fr 1fr;
-          gap: 10px;
-          background: rgba(0,0,0,0.15);
-          border: 1px solid rgba(255,255,255,0.03);
-          border-radius: 10px;
-          padding: 12px;
-          margin-bottom: 20px;
+          gap: 8px;
+          background: rgba(0,0,0,0.12);
+          border: 1px solid rgba(255,255,255,0.02);
+          border-radius: 8px;
+          padding: 8px;
+          margin-bottom: 12px;
         }
 
         .limit-box {
@@ -450,7 +451,7 @@ export default function ClientsPage() {
         }
 
         .limit-val {
-          font-size: 13px;
+          font-size: 12px;
           font-weight: 700;
           color: #e5e7eb;
         }
@@ -466,16 +467,16 @@ export default function ClientsPage() {
           justify-content: space-between;
           align-items: center;
           border-top: 1px solid rgba(255,255,255,0.05);
-          padding-top: 15px;
+          padding-top: 10px;
         }
 
         .status-pill {
           display: flex;
           align-items: center;
           gap: 6px;
-          font-size: 11px;
+          font-size: 10px;
           font-weight: 600;
-          padding: 4px 10px;
+          padding: 4px 8px;
           border-radius: 20px;
         }
 
@@ -881,6 +882,18 @@ export default function ClientsPage() {
                       <span>{client.template.name}</span>
                     </span>
                   </div>
+
+                  {/* Сервера / Ноды (Из 3XUI) */}
+                  {client.nodes && client.nodes.length > 0 && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '10px', alignItems: 'center' }}>
+                      <span style={{ fontSize: '9px', color: '#6b7280', textTransform: 'uppercase', fontWeight: 700, marginRight: '2px' }}>Сервера:</span>
+                      {client.nodes.map((node, i) => (
+                        <span key={i} style={{ fontSize: '9px', background: 'rgba(6, 182, 212, 0.08)', border: '1px solid rgba(6, 182, 212, 0.15)', color: '#22d3ee', padding: '2px 5px', borderRadius: '4px', fontWeight: 600 }}>
+                          {node}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {/* Лимиты */}
