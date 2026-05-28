@@ -25,6 +25,7 @@ export default function SettingsPage() {
   const [xuiApiUrl, setXuiApiUrl] = useState('');
   const [xuiUsername, setXuiUsername] = useState('');
   const [xuiPassword, setXuiPassword] = useState('');
+  const [xuiApiToken, setXuiApiToken] = useState('');
   const [btwSupportLink, setBtwSupportLink] = useState('');
   const [appPanelUrl, setAppPanelUrl] = useState('');
   
@@ -50,6 +51,7 @@ export default function SettingsPage() {
           setXuiApiUrl(s.xui_api_url || '');
           setXuiUsername(s.xui_username || '');
           setXuiPassword(s.xui_password || ''); // Для безопасности можно скрыть, но у нас админ-панель
+          setXuiApiToken(s.xui_api_token || '');
           setBtwSupportLink(s.btw_support_link || '');
           setAppPanelUrl(s.app_panel_url || '');
           
@@ -94,6 +96,7 @@ export default function SettingsPage() {
       xui_api_url: xuiApiUrl.trim(),
       xui_username: xuiUsername.trim(),
       xui_password: xuiPassword,
+      xui_api_token: xuiApiToken.trim(),
       btw_support_link: btwSupportLink.trim(),
       app_panel_url: appPanelUrl.trim(),
       tg_bot_token: tgBotToken.trim(),
@@ -342,7 +345,6 @@ export default function SettingsPage() {
                 placeholder="admin"
                 value={xuiUsername}
                 onChange={(e) => setXuiUsername(e.target.value)}
-                required
               />
             </div>
 
@@ -354,9 +356,22 @@ export default function SettingsPage() {
                 placeholder="Ваш пароль 3XUI"
                 value={xuiPassword}
                 onChange={(e) => setXuiPassword(e.target.value)}
-                required
               />
             </div>
+          </div>
+
+          <div className="form-group" style={{ marginTop: '10px' }}>
+            <label className="form-label">API Токен 3XUI (Bearer token — Рекомендуется)</label>
+            <input
+              type="text"
+              className="form-input"
+              placeholder="Вставьте токен, например: api_token_..."
+              value={xuiApiToken}
+              onChange={(e) => setXuiApiToken(e.target.value)}
+            />
+            <span className="help-text">
+              <strong>Рекомендуется:</strong> Если вы используете современную версию 3XUI с поддержкой токенов (Settings → Security → API Tokens), вставьте токен сюда. Это полностью отменяет необходимость логина/пароля, убирает сессионные куки и делает соединение на 100% стабильным!
+            </span>
           </div>
         </div>
 

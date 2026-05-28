@@ -5,6 +5,7 @@ interface XuiConfig {
   apiUrl: string;
   username: string;
   password: string;
+  apiToken: string;
 }
 
 // Кэш сессионной куки для предотвращения повторной авторизации
@@ -22,12 +23,14 @@ async function getXuiConfig(): Promise<XuiConfig> {
   const apiUrl = settingsMap.get('xui_api_url') || process.env.XUI_API_URL || 'http://localhost:2053';
   const username = settingsMap.get('xui_username') || process.env.XUI_USERNAME || 'admin';
   const password = settingsMap.get('xui_password') || process.env.XUI_PASSWORD || 'admin';
+  const apiToken = settingsMap.get('xui_api_token') || process.env.XUI_API_TOKEN || '';
 
   // Удаляем завершающий слеш из URL
   return {
     apiUrl: apiUrl.endsWith('/') ? apiUrl.slice(0, -1) : apiUrl,
     username,
     password,
+    apiToken,
   };
 }
 
@@ -99,12 +102,19 @@ async function xuiRequest<T = any>(
 ): Promise<T> {
   const config = await getXuiConfig();
   const url = `${config.apiUrl}${path}`;
-  const cookie = await xuiLogin();
-
+  
   const headers: Record<string, string> = {
     'Accept': 'application/json',
-    'Cookie': cookie,
   };
+
+  if (config.apiToken) {
+    // Токен-авторизация (Bearer Token) — не требует логина, сессий и обходит CSRF
+    headers['Authorization'] = `Bearer ${config.apiToken}`;
+  } else {
+    // Традиционная сессионная кука
+    const cookie = await xuiLogin();
+    headers['Cookie'] = cookie;
+  }
 
   if (body) {
     headers['Content-Type'] = 'application/json';
@@ -118,8 +128,8 @@ async function xuiRequest<T = any>(
       cache: 'no-store',
     });
 
-    // Если получили 401/Unauthorized, возможно сессия истекла
-    if (res.status === 401 && !isRetry) {
+    // Если получили 401/Unauthorized, возможно сессия истекла (актуально только для авторизации по кукам)
+    if (res.status === 401 && !isRetry && !config.apiToken) {
       console.log('3XUI session expired (401), re-authenticating...');
       await xuiLogin(true); // Форсируем логин
       return xuiRequest(path, method, body, true); // Пробуем снова
