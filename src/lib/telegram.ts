@@ -221,7 +221,7 @@ export async function handleTelegramMessage(token: string, message: any) {
           if (inbound) {
             const inboundNodeId = inbound.nodeId !== undefined ? String(inbound.nodeId) : '0';
             const nodeDomain = nodeDomains[inboundNodeId] || nodeDomains['0'] || 'vpn.btw.com';
-            const link = generateConfigLink(inbound, client.vpnUuid, client.email, nodeDomain, clientFlow);
+            const link = generateConfigLink(inbound, client.vpnUuid, client.email, nodeDomain, clientFlow, client.name);
             if (link) configLinks.push(link);
           }
         }

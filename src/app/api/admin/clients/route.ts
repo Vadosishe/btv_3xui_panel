@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 import prisma from '@/lib/prisma';
 import { getSession } from '@/lib/auth';
-import { xuiAddClient, xuiDeleteClient } from '@/lib/xui';
+import { xuiAddClient, xuiDeleteClient, getCleanLatinName } from '@/lib/xui';
 
 // 1. Получить список всех клиентов
 export async function GET() {
@@ -111,7 +111,8 @@ export async function POST(req: Request) {
     // Генерируем UUID и токены для VPN-подключения
     const clientUuid = crypto.randomUUID();
     const subToken = crypto.randomUUID();
-    const clientEmail = `client_${clientUuid.slice(0, 8)}@btw.vpn`; // Уникальный email-id для 3XUI
+    const cleanName = getCleanLatinName(name);
+    const clientEmail = `${cleanName}_${clientUuid.slice(0, 8)}@btv.vpn`; // Уникальный email-id для 3XUI с транслитерацией имени
 
     // Вычисляем лимиты с учетом кастомных переопределений
     const trafficLimitGB = customTrafficLimitGB !== undefined && customTrafficLimitGB !== null
@@ -197,7 +198,7 @@ export async function POST(req: Request) {
       console.warn(`Failure creating client in 3XUI. Rolling back for added inbounds: [${addedInboundIds.join(', ')}]...`);
       for (const addedId of addedInboundIds) {
         try {
-          await xuiDeleteClient(addedId, clientUuid);
+          await xuiDeleteClient(addedId, clientEmail);
         } catch (rollbackErr: any) {
           console.error(`Rollback failed for Inbound ID ${addedId}:`, rollbackErr.message);
         }

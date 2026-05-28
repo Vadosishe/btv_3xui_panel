@@ -56,7 +56,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
           const nodeDomain = nodeDomains[inboundNodeId] || defaultDomain;
 
           const clientFlow = client.flow !== null ? client.flow : (client.template.flow || '');
-          const link = generateConfigLink(inbound, client.vpnUuid, client.email, nodeDomain, clientFlow);
+          const link = generateConfigLink(inbound, client.vpnUuid, client.email, nodeDomain, clientFlow, client.name);
           if (link) {
             configLinks.push(link);
           }
@@ -179,7 +179,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     // Удаляем клиента из ВСЕХ старых инбаундов
     for (const oldInboundId of oldInboundIds) {
       try {
-        await xuiDeleteClient(oldInboundId, client.vpnUuid);
+        await xuiDeleteClient(oldInboundId, client.email);
       } catch (e: any) {
         console.error(`Failed to delete client ${client.email} from old Inbound ${oldInboundId}:`, e.message);
       }
@@ -223,7 +223,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         console.warn(`Rollback new inbounds after edit failure: [${addedInbounds.join(', ')}]...`);
         for (const addedId of addedInbounds) {
           try {
-            await xuiDeleteClient(addedId, client.vpnUuid);
+            await xuiDeleteClient(addedId, client.email);
           } catch (e: any) {
             console.error(`Rollback failed for Inbound ${addedId}:`, e.message);
           }
@@ -298,7 +298,7 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
 
     for (const inboundId of inboundIds) {
       try {
-        await xuiDeleteClient(inboundId, client.vpnUuid);
+        await xuiDeleteClient(inboundId, client.email);
       } catch (err: any) {
         console.error(`Failed to delete client ${client.email} from 3XUI Inbound ${inboundId}:`, err.message);
       }
