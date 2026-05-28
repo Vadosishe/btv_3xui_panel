@@ -65,7 +65,7 @@ export default function ClientsPage() {
   const [templates, setTemplates] = useState<Template[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
 
   // Состояние поиска и фильтрации
   const [searchQuery, setSearchQuery] = useState('');
@@ -815,6 +815,12 @@ export default function ClientsPage() {
           font-family: monospace;
           flex-grow: 1;
           text-align: left;
+          text-decoration: none;
+          transition: color var(--transition-fast);
+        }
+        .sub-url-text:hover {
+          color: #22d3ee;
+          text-decoration: underline;
         }
 
         .btn-icon-copy {
@@ -1373,7 +1379,15 @@ export default function ClientsPage() {
                 <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   <div className="form-label" style={{ textAlign: 'left' }}>Умная ссылка подписки:</div>
                   <div className="sub-link-copy-box">
-                    <span className="sub-url-text">{selectedClientKeys.subscriptionUrl}</span>
+                    <a 
+                      href={selectedClientKeys.subscriptionUrl} 
+                      target="_blank" 
+                      rel="noopener noreferrer" 
+                      className="sub-url-text"
+                      title="Перейти по ссылке подписки"
+                    >
+                      {selectedClientKeys.subscriptionUrl}
+                    </a>
                     <button 
                       className="btn-icon-copy" 
                       onClick={() => copyToClipboard(selectedClientKeys.subscriptionUrl, 'Ссылка подписки скопирована!')}
