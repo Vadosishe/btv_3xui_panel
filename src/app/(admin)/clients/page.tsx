@@ -119,6 +119,45 @@ export default function ClientsPage() {
   } | null>(null);
   const [isLoadingKeys, setIsLoadingKeys] = useState(false);
 
+  // Amnezia WG Status & Sync
+  const [amneziaStatus, setAmneziaStatus] = useState<any[]>([]);
+  const [isLoadingAmnezia, setIsLoadingAmnezia] = useState(false);
+  const [isSyncingAmnezia, setIsSyncingAmnezia] = useState(false);
+
+  const fetchAmneziaStatus = async (clientId: string) => {
+    setIsLoadingAmnezia(true);
+    setAmneziaStatus([]);
+    try {
+      const res = await fetch(`/api/admin/clients/${clientId}/amnezia`);
+      if (res.ok) {
+        const data = await res.json();
+        setAmneziaStatus(data.servers || []);
+      }
+    } catch (e) {
+      console.error('Failed to fetch Amnezia status:', e);
+    } finally {
+      setIsLoadingAmnezia(false);
+    }
+  };
+
+  const handleSyncAmnezia = async (clientId: string) => {
+    setIsSyncingAmnezia(true);
+    try {
+      const res = await fetch(`/api/admin/clients/${clientId}/amnezia`, { method: 'POST' });
+      if (res.ok) {
+        showToast('Запрос на синхронизацию Amnezia отправлен!', 'success');
+        setTimeout(() => fetchAmneziaStatus(clientId), 1500);
+      } else {
+        showToast('Ошибка при отправке запроса на синхронизацию', 'error');
+      }
+    } catch (e) {
+      console.error('Failed to sync Amnezia:', e);
+      showToast('Ошибка при синхронизации', 'error');
+    } finally {
+      setIsSyncingAmnezia(false);
+    }
+  };
+
   // Подгрузка данных
   const loadData = async () => {
     try {
@@ -204,6 +243,8 @@ export default function ClientsPage() {
     setIsLoadingKeys(true);
     setIsKeysModalOpen(true);
     setSelectedClientKeys(null);
+    setAmneziaStatus([]);
+    fetchAmneziaStatus(client.id);
     try {
       const res = await fetch(`/api/admin/clients/${client.id}`);
       if (res.ok) {
@@ -1742,6 +1783,116 @@ export default function ClientsPage() {
                     У инбаундов этого шаблона не поддерживается автогенерация ссылок.
                   </div>
                 )}
+
+                {/* Интеграция Amnezia WG */}
+                <div style={{
+                  borderTop: '1px solid var(--border-color)',
+                  marginTop: '15px',
+                  paddingTop: '15px',
+                  width: '100%',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '10px'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div className="form-label" style={{ margin: 0, fontSize: '12px' }}>Статус на серверах Amnezia:</div>
+                    <button
+                      type="button"
+                      onClick={() => handleSyncAmnezia(selectedClientKeys.client.id)}
+                      disabled={isSyncingAmnezia}
+                      style={{
+                        background: 'rgba(168, 85, 247, 0.1)',
+                        border: '1px solid rgba(168, 85, 247, 0.25)',
+                        color: '#c084fc',
+                        fontSize: '11px',
+                        padding: '4px 10px',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        fontWeight: 600,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}
+                    >
+                      {isSyncingAmnezia ? <Loader size={12} className="spinner" /> : null}
+                      <span>Синхронизировать всё</span>
+                    </button>
+                  </div>
+
+                  {isLoadingAmnezia ? (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '10px', color: 'var(--text-muted)', fontSize: '12px' }}>
+                      <Loader size={14} className="spinner" style={{ color: '#c084fc' }} />
+                      <span>Опрос серверов Amnezia...</span>
+                    </div>
+                  ) : amneziaStatus.length > 0 ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      {amneziaStatus.map((srv: any) => (
+                        <div
+                          key={srv.serverId}
+                          style={{
+                            background: 'rgba(0,0,0,0.15)',
+                            border: '1px solid var(--border-color)',
+                            borderRadius: '8px',
+                            padding: '10px',
+                            fontSize: '12px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '4px'
+                          }}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <strong style={{ color: '#fff' }}>{srv.serverName}</strong>
+                            {srv.error ? (
+                              <span style={{ color: '#ef4444', fontWeight: 600, fontSize: '11px' }}>⚠️ Ошибка связи</span>
+                            ) : srv.exists ? (
+                              <span style={{
+                                color: srv.enabled ? '#34d399' : '#f87171',
+                                background: srv.enabled ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                                border: '1px solid',
+                                borderColor: srv.enabled ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)',
+                                padding: '2px 8px',
+                                borderRadius: '12px',
+                                fontSize: '10px',
+                                fontWeight: 700
+                              }}>
+                                {srv.enabled ? '🟢 Активен' : '🔴 Заблокирован'}
+                              </span>
+                            ) : (
+                              <span style={{
+                                color: '#9ca3af',
+                                background: 'rgba(255,255,255,0.05)',
+                                border: '1px solid rgba(255,255,255,0.1)',
+                                padding: '2px 8px',
+                                borderRadius: '12px',
+                                fontSize: '10px',
+                                fontWeight: 700
+                              }}>
+                                ⚪ Отсутствует
+                              </span>
+                            )}
+                          </div>
+
+                          {!srv.error && srv.exists && (
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', fontSize: '10px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                              <span>IP: <b style={{ color: 'var(--text-secondary)' }}>{srv.address}</b></span>
+                              <span>Активность: <b style={{ color: 'var(--text-secondary)' }}>{srv.lastHandshakeAt ? new Date(srv.lastHandshakeAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : 'нет'}</b></span>
+                              <span>Получено: <b style={{ color: 'var(--text-secondary)' }}>{(srv.transferRx / (1024 * 1024)).toFixed(1)} MB</b></span>
+                              <span>Отправлено: <b style={{ color: 'var(--text-secondary)' }}>{(srv.transferTx / (1024 * 1024)).toFixed(1)} MB</b></span>
+                            </div>
+                          )}
+
+                          {srv.error && (
+                            <div style={{ fontSize: '10px', color: '#f87171' }}>{srv.message}</div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{ color: 'var(--text-muted)', fontSize: '12px', textAlign: 'center', padding: '10px' }}>
+                      К тарифу этого сотрудника не привязаны серверы Amnezia WG.
+                    </div>
+                  )}
+                </div>
 
               </div>
             ) : null}

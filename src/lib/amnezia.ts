@@ -272,7 +272,11 @@ export async function amneziaGetClientConfigs(
           const peers = await awgServerRequest<any[]>(server, '/api/peers', 'GET');
           if (!Array.isArray(peers)) return;
 
-          const peer = peers.find(p => p.name.toLowerCase().trim() === clientEmail.toLowerCase().trim());
+          let peer = peers.find(p => p.name.toLowerCase().trim() === clientEmail.toLowerCase().trim());
+          if (!peer) {
+            console.log(`[AWG ON-DEMAND SYNC] Peer ${clientEmail} not found on server ${server.name} during bulk config fetch. Creating on-demand...`);
+            peer = await amneziaAddPeerOnServer(server, clientEmail);
+          }
           if (!peer) return;
 
           const baseUrl = server.apiUrl.endsWith('/') ? server.apiUrl.slice(0, -1) : server.apiUrl;
@@ -336,7 +340,11 @@ export async function amneziaGetPeerConfigOnServer(
     const peers = await awgServerRequest<any[]>(server, '/api/peers', 'GET');
     if (!Array.isArray(peers)) return null;
 
-    const peer = peers.find(p => p.name.toLowerCase().trim() === clientEmail.toLowerCase().trim());
+    let peer = peers.find(p => p.name.toLowerCase().trim() === clientEmail.toLowerCase().trim());
+    if (!peer) {
+      console.log(`[AWG ON-DEMAND SYNC] Peer ${clientEmail} not found on server ${server.name} during config get. Creating on-demand...`);
+      peer = await amneziaAddPeerOnServer(server, clientEmail);
+    }
     if (!peer) return null;
 
     const baseUrl = server.apiUrl.endsWith('/') ? server.apiUrl.slice(0, -1) : server.apiUrl;
@@ -388,6 +396,34 @@ export async function amneziaGetPeerConfigOnServer(
     return configText;
   } catch (err: any) {
     console.error(`Failed to build AWG config for server ${server.name}:`, err.message);
+    return null;
+  }
+}
+
+/**
+ * Получить детальную информацию о пире с конкретного сервера
+ */
+export async function amneziaGetPeerDetailsOnServer(
+  server: AwgServer,
+  clientEmail: string
+): Promise<{ exists: boolean; enabled?: boolean; address?: string; lastHandshakeAt?: string; transferRx?: number; transferTx?: number } | null> {
+  try {
+    const peers = await awgServerRequest<any[]>(server, '/api/peers', 'GET');
+    if (!Array.isArray(peers)) return { exists: false };
+
+    const peer = peers.find(p => p.name.toLowerCase().trim() === clientEmail.toLowerCase().trim());
+    if (!peer) return { exists: false };
+
+    return {
+      exists: true,
+      enabled: peer.enabled,
+      address: peer.address,
+      lastHandshakeAt: peer.lastHandshakeAt,
+      transferRx: peer.transferRx,
+      transferTx: peer.transferTx
+    };
+  } catch (err: any) {
+    console.error(`Failed to get peer details from AWG Server ${server.name}:`, err.message);
     return null;
   }
 }
