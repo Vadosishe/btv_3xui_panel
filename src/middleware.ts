@@ -13,6 +13,7 @@ const PUBLIC_PATHS = [
   '/favicon.ico',
   '/request',       // Публичная форма запроса VPN
   '/api/request',   // API для отправки заявки
+  '/api/telegram',  // Telegram Webhook API
 ];
 
 export async function middleware(req: NextRequest) {
@@ -27,8 +28,8 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // 2. Пропускаем публичную ссылку Smart Subscription
-  if (pathname.startsWith('/api/sub/')) {
+  // 2. Пропускаем публичную ссылку Smart Subscription и Telegram Webhook
+  if (pathname.startsWith('/api/sub/') || pathname.startsWith('/api/telegram/')) {
     return NextResponse.next();
   }
 
