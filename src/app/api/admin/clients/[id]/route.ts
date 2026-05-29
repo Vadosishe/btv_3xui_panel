@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { getSession } from '@/lib/auth';
-import { xuiAddClient, xuiDeleteClient, xuiGetInbounds, generateConfigLink, xuiClearCache } from '@/lib/xui';
+import { xuiAddClient, xuiDeleteClient, xuiGetInbounds, generateConfigLink, xuiClearCache, xuiGetNodeDomains } from '@/lib/xui';
 import QRCode from 'qrcode';
 
 // 1. Получить детальную информацию о клиенте + сгенерированные VPN-ссылки
@@ -30,17 +30,11 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     const settings = await prisma.appSetting.findMany();
     const settingsMap = new Map(settings.map(s => [s.key, s.value]));
     
-    // JSON-карта ID нод в домены, например: {"0":"nl1.btw.com", "1":"nl2.btw.com"}
-    const nodeDomainsRaw = settingsMap.get('xui_node_domains') || '{}';
-    let nodeDomains: Record<string, string> = {};
-    try {
-      nodeDomains = JSON.parse(nodeDomainsRaw);
-    } catch (e) {
-      nodeDomains = {};
-    }
+    // Динамически получаем объединенные домены нод (3XUI API + Postgres overrides)
+    const nodeDomains = await xuiGetNodeDomains();
 
     // Дефолтный домен (хост главного сервера)
-    const defaultDomain = settingsMap.get('xui_address') || 'vpn.btw.com';
+    const defaultDomain = nodeDomains['0'] || settingsMap.get('xui_address') || 'vpn.btw.com';
 
     // Получаем инбаунды с 3XUI, чтобы спарсить Reality/TLS настройки и сгенерировать ссылки
     let configLinks: string[] = [];

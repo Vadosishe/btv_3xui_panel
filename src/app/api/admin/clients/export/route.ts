@@ -129,10 +129,24 @@ export async function POST(req: Request) {
       const vlessContent = configLinks.join('\n');
       zip.file(`${folderPath}/vless-connection-links.txt`, vlessContent);
 
-      // 3. Backup Amnezia VPN config (.vpn)
-      const amneziaNodeDomain = nodeDomains['0'] || defaultDomain;
-      const amneziaConfig = generateAmneziaMockConfig(client, amneziaNodeDomain);
-      zip.file(`${folderPath}/btv-amnezia-config.vpn`, amneziaConfig);
+      // 3. Backup Amnezia VPN config (.vpn / .conf)
+      try {
+        const { amneziaGetPeerConfig } = await import('@/lib/amnezia');
+        const realAwgConfig = await amneziaGetPeerConfig(client.email);
+        if (realAwgConfig) {
+          zip.file(`${folderPath}/btv-amnezia-config.conf`, realAwgConfig);
+        } else {
+          // Fallback to mock .vpn if integration is disabled or no peer found
+          const amneziaNodeDomain = nodeDomains['0'] || defaultDomain;
+          const amneziaConfig = generateAmneziaMockConfig(client, amneziaNodeDomain);
+          zip.file(`${folderPath}/btv-amnezia-config.vpn`, amneziaConfig);
+        }
+      } catch (err) {
+        console.warn(`Failed to fetch real AWG config for ZIP exporter for ${client.email}:`, err);
+        const amneziaNodeDomain = nodeDomains['0'] || defaultDomain;
+        const amneziaConfig = generateAmneziaMockConfig(client, amneziaNodeDomain);
+        zip.file(`${folderPath}/btv-amnezia-config.vpn`, amneziaConfig);
+      }
 
       // 4. Binary Subscription QR Code PNG
       try {

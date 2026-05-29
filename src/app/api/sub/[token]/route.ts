@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { xuiGetInbounds, generateConfigLink, xuiGetNodeDomains } from '@/lib/xui';
+import { xuiGetInbounds, generateConfigLink, xuiGetNodeDomains, xuiGetClientTraffic } from '@/lib/xui';
 import QRCode from 'qrcode';
 
 export async function GET(
@@ -26,6 +26,27 @@ export async function GET(
     });
     const t1 = Date.now();
     console.log(`[SUB API BENCHMARK] Fetch client by token: ${t1 - t0}ms`);
+
+    // Фоновая On-Demand автосинхронизация трафика этого клиента из 3XUI
+    if (client) {
+      try {
+        const traffic = await xuiGetClientTraffic(client.email);
+        if (traffic) {
+          const totalUsed = BigInt(traffic.up || 0) + BigInt(traffic.down || 0);
+          if (totalUsed !== client.usedTrafficBytes) {
+            client.usedTrafficBytes = totalUsed; // Обновляем в памяти для рендеринга страницы и заголовков
+            
+            // Асинхронно сохраняем в БД в фоне, не блокируя ответ клиенту
+            prisma.client.update({
+              where: { id: client.id },
+              data: { usedTrafficBytes: totalUsed, lastSyncedAt: new Date() }
+            }).catch(dbErr => console.error('Failed to update synced traffic for client on sub request:', dbErr));
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to sync traffic from XUI on sub request:', err);
+      }
+    }
 
     // 2. Получаем ссылку поддержки и домен из настроек
     const t2 = Date.now();
@@ -69,7 +90,7 @@ export async function GET(
 
     const isActive = client && isClientActive && isCompanyActive && !isExpired;
 
-    // --- СЦЕНАРИЙ 3: Запрос конфигурации AmneziaVPN (Архитектурный плейсхолдер) ---
+    // --- СЦЕНАРИЙ 3: Запрос конфигурации AmneziaVPN (Реальный AWG 2.0 / Резервный плейсхолдер) ---
     if (format === 'amnezia') {
       if (!client) {
         return new NextResponse(JSON.stringify({ error: 'Подписка не найдена' }), {
@@ -84,6 +105,25 @@ export async function GET(
         });
       }
 
+      // Пробуем получить реальный конфиг Amnezia WireGuard (AWG 2.0) через интеграционный модуль
+      try {
+        const { amneziaGetPeerConfig } = await import('@/lib/amnezia');
+        const realAwgConfig = await amneziaGetPeerConfig(client.email);
+        
+        if (realAwgConfig) {
+          return new NextResponse(realAwgConfig, {
+            headers: {
+              'Content-Type': 'text/plain; charset=utf-8',
+              'Content-Disposition': `attachment; filename="btv-awg-${client.vpnUuid.substring(0, 8)}.conf"`,
+              'Cache-Control': 'no-store',
+            },
+          });
+        }
+      } catch (err) {
+        console.warn('Failed to fetch real AWG config, falling back to mock container:', err);
+      }
+
+      // Откат к плейсхолдеру (стандартный mock-профиль), если API выключено или недоступно
       const nodeDomains = await xuiGetNodeDomains();
       const defaultDomain = settingsMap.get('xui_address') || 'vpn.btw.com';
       const nodeDomain = nodeDomains['0'] || defaultDomain;

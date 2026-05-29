@@ -42,6 +42,20 @@ export default function SettingsPage() {
   const [btwSubscriptionPrice, setBtwSubscriptionPrice] = useState('100');
   const [xuiNodeCosts, setXuiNodeCosts] = useState<Record<string, string>>({});
 
+  // Amnezia WG 2.0 Integration
+  const [awgEnabled, setAwgEnabled] = useState(false);
+  const [awgApiUrl, setAwgApiUrl] = useState('http://localhost:51821');
+  const [awgApiPassword, setAwgApiPassword] = useState('');
+  const [awgJc, setAwgJc] = useState('4');
+  const [awgJmin, setAwgJmin] = useState('40');
+  const [awgJmax, setAwgJmax] = useState('70');
+  const [awgS1, setAwgS1] = useState('5');
+  const [awgS2, setAwgS2] = useState('10');
+  const [awgH1, setAwgH1] = useState('1');
+  const [awgH2, setAwgH2] = useState('2');
+  const [awgH3, setAwgH3] = useState('3');
+  const [awgH4, setAwgH4] = useState('4');
+
   // Состояние проверки связи
   const [isTesting, setIsTesting] = useState(false);
   const [testError, setTestError] = useState<string | null>(null);
@@ -97,13 +111,26 @@ export default function SettingsPage() {
           setTgAdminChatIds(s.tg_admin_chat_ids || '');
           setSyncInterval(s.sync_interval_minutes || '15');
           
-          setTgBotUsername(s.xui_telegram_bot_username || '');
+           setTgBotUsername(s.xui_telegram_bot_username || '');
           setBtwSubscriptionPrice(s.btw_subscription_price || '100');
           try {
             setXuiNodeCosts(JSON.parse(s.xui_node_costs || '{}'));
           } catch (e) {
             setXuiNodeCosts({});
           }
+
+          setAwgEnabled(s.awg_enabled === 'true');
+          setAwgApiUrl(s.awg_api_url || 'http://localhost:51821');
+          setAwgApiPassword(s.awg_api_password || '');
+          setAwgJc(s.awg_jc || '4');
+          setAwgJmin(s.awg_jmin || '40');
+          setAwgJmax(s.awg_jmax || '70');
+          setAwgS1(s.awg_s1 || '5');
+          setAwgS2(s.awg_s2 || '10');
+          setAwgH1(s.awg_h1 || '1');
+          setAwgH2(s.awg_h2 || '2');
+          setAwgH3(s.awg_h3 || '3');
+          setAwgH4(s.awg_h4 || '4');
         }
 
         if (adminsRes.ok) {
@@ -150,6 +177,19 @@ export default function SettingsPage() {
       xui_telegram_bot_username: tgBotUsername.trim(),
       btw_subscription_price: btwSubscriptionPrice.trim(),
       xui_node_costs: JSON.stringify(xuiNodeCosts),
+
+      awg_enabled: awgEnabled ? 'true' : 'false',
+      awg_api_url: awgApiUrl.trim(),
+      awg_api_password: awgApiPassword.trim(),
+      awg_jc: awgJc.trim(),
+      awg_jmin: awgJmin.trim(),
+      awg_jmax: awgJmax.trim(),
+      awg_s1: awgS1.trim(),
+      awg_s2: awgS2.trim(),
+      awg_h1: awgH1.trim(),
+      awg_h2: awgH2.trim(),
+      awg_h3: awgH3.trim(),
+      awg_h4: awgH4.trim(),
     };
 
     try {
@@ -804,6 +844,175 @@ export default function SettingsPage() {
               </span>
             </div>
           </div>
+        </div>
+
+        {/* --- СЕКЦИЯ 4.5: ИНТЕГРАЦИЯ AMNEZIA WG (AWG 2.0) --- */}
+        <div className="settings-section glass-panel">
+          <div className="section-header">
+            <Server size={18} className="section-icon" style={{ color: '#a855f7' }} />
+            <span>Интеграция Amnezia WireGuard (AWG 2.0)</span>
+          </div>
+
+          <span className="help-text" style={{ marginTop: '-10px' }}>
+            Подключите панель к вашему контейнеру <strong>amnezia-wg-easy</strong> для автоматического создания и управления резервными WireGuard-подключениями с защитой от DPI блокировок.
+          </span>
+
+          <div className="form-group" style={{ flexDirection: 'row', alignItems: 'center', gap: '10px', background: 'rgba(168, 85, 247, 0.05)', padding: '12px 15px', borderRadius: '10px', border: '1px solid rgba(168, 85, 247, 0.15)' }}>
+            <input
+              type="checkbox"
+              id="awgEnabled"
+              checked={awgEnabled}
+              onChange={(e) => setAwgEnabled(e.target.checked)}
+              style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#a855f7' }}
+            />
+            <label htmlFor="awgEnabled" style={{ fontSize: '13px', fontWeight: 600, color: '#e9d5ff', cursor: 'pointer' }}>
+              Включить резервный канал Amnezia WireGuard (AWG 2.0)
+            </label>
+          </div>
+
+          {awgEnabled && (
+            <>
+              <div className="form-grid">
+                <div className="form-group">
+                  <label className="form-label">API URL amnezia-wg-easy</label>
+                  <input
+                    type="url"
+                    className="form-input"
+                    placeholder="http://localhost:51821"
+                    value={awgApiUrl}
+                    onChange={(e) => setAwgApiUrl(e.target.value)}
+                    required={awgEnabled}
+                  />
+                  <span className="help-text">
+                    Адрес панели управления amnezia-wg-easy (с портом, обычно 51821).
+                  </span>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Пароль от API amnezia-wg-easy</label>
+                  <input
+                    type="password"
+                    className="form-input"
+                    placeholder="Ваш секретный пароль администратора"
+                    value={awgApiPassword}
+                    onChange={(e) => setAwgApiPassword(e.target.value)}
+                    required={awgEnabled}
+                  />
+                  <span className="help-text">
+                    Пароль, используемый для входа в панель wg-easy.
+                  </span>
+                </div>
+              </div>
+
+              <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '20px', marginTop: '10px' }}>
+                <label className="form-label" style={{ marginBottom: '12px', display: 'block', color: '#fff', fontSize: '12px', fontWeight: 700 }}>
+                  Параметры обфускации AWG 2.0 (Защита от DPI / ТСПУ РФ)
+                </label>
+                
+                <div className="form-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)', gap: '15px' }}>
+                  <div className="form-group">
+                    <label className="form-label">Jc (Кол-во мусорных пакетов)</label>
+                    <input
+                      type="number"
+                      className="form-input"
+                      value={awgJc}
+                      onChange={(e) => setAwgJc(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Jmin (Минимальный размер мусора)</label>
+                    <input
+                      type="number"
+                      className="form-input"
+                      value={awgJmin}
+                      onChange={(e) => setAwgJmin(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Jmax (Максимальный размер мусора)</label>
+                    <input
+                      type="number"
+                      className="form-input"
+                      value={awgJmax}
+                      onChange={(e) => setAwgJmax(e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="form-grid" style={{ gridTemplateColumns: 'repeat(2, 1fr)', gap: '15px', marginTop: '15px' }}>
+                  <div className="form-group">
+                    <label className="form-label">S1 (Смещение байт 1)</label>
+                    <input
+                      type="number"
+                      className="form-input"
+                      value={awgS1}
+                      onChange={(e) => setAwgS1(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">S2 (Смещение байт 2)</label>
+                    <input
+                      type="number"
+                      className="form-input"
+                      value={awgS2}
+                      onChange={(e) => setAwgS2(e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="form-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginTop: '15px' }}>
+                  <div className="form-group">
+                    <label className="form-label">H1 (Заголовок 1)</label>
+                    <input
+                      type="number"
+                      className="form-input"
+                      value={awgH1}
+                      onChange={(e) => setAwgH1(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">H2 (Заголовок 2)</label>
+                    <input
+                      type="number"
+                      className="form-input"
+                      value={awgH2}
+                      onChange={(e) => setAwgH2(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">H3 (Заголовок 3)</label>
+                    <input
+                      type="number"
+                      className="form-input"
+                      value={awgH3}
+                      onChange={(e) => setAwgH3(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">H4 (Заголовок 4)</label>
+                    <input
+                      type="number"
+                      className="form-input"
+                      value={awgH4}
+                      onChange={(e) => setAwgH4(e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+                <span className="help-text" style={{ display: 'block', marginTop: '10px', fontSize: '11px', color: 'var(--text-muted)' }}>
+                  Эти параметры обфускации будут автоматически внедрены в скачиваемые клиентами <strong>.conf</strong> файлы для правильной расшифровки в приложении AmneziaVPN / Nekobox.
+                </span>
+              </div>
+            </>
+          )}
         </div>
 
         {/* --- СЕКЦИЯ 5: РЕЗЕРВНОЕ КОПИРОВАНИЕ --- */}

@@ -195,6 +195,17 @@ export async function xuiAddClient(
   };
 
   const data = await xuiRequest('/panel/api/clients/add', 'POST', body);
+
+  if (data.success) {
+    // Дублируем добавление клиента в Amnezia WireGuard
+    try {
+      const { amneziaAddPeer } = await import('./amnezia');
+      await amneziaAddPeer(client.email);
+    } catch (awgErr: any) {
+      console.error('Failed to register client in Amnezia WG during xuiAddClient:', awgErr.message);
+    }
+  }
+
   return !!data.success;
 }
 
@@ -234,6 +245,17 @@ export async function xuiDeleteClient(inboundId: number, clientUuid: string): Pr
     : `client_${clientUuid.slice(0, 8)}@btv.vpn`;
 
   const data = await xuiRequest(`/panel/api/clients/del/${email}`, 'POST');
+
+  if (data.success) {
+    // Удаляем клиента из Amnezia WireGuard
+    try {
+      const { amneziaDeletePeer } = await import('./amnezia');
+      await amneziaDeletePeer(email);
+    } catch (awgErr: any) {
+      console.error('Failed to delete peer in Amnezia WG during xuiDeleteClient:', awgErr.message);
+    }
+  }
+
   return !!data.success;
 }
 
@@ -304,6 +326,17 @@ export async function xuiUpdateClient(
   };
 
   const data = await xuiRequest(`/panel/api/clients/update/${client.email}`, 'POST', body);
+
+  if (data.success) {
+    // Синхронизируем статус клиента (вкл/выкл) в Amnezia WireGuard
+    try {
+      const { amneziaTogglePeer } = await import('./amnezia');
+      await amneziaTogglePeer(client.email, client.enable ?? true);
+    } catch (awgErr: any) {
+      console.error('Failed to toggle peer in Amnezia WG during xuiUpdateClient:', awgErr.message);
+    }
+  }
+
   return !!data.success;
 }
 
@@ -642,7 +675,8 @@ let cachedNodeDomains: Record<string, string> | null = null;
 let cachedNodeDomainsTime = 0;
 
 /**
- * Получить список всех нод и построить динамический маппинг ID -> Домен с кэшированием на 3 минуты
+ * Получить список всех нод и построить динамический маппинг ID -> Домен с кэшированием на 3 минуты.
+ * Интегрирует кастомные переопределения доменов нод из базы данных Postgres (xui_node_domains).
  */
 export async function xuiGetNodeDomains(): Promise<Record<string, string>> {
   const now = Date.now();
@@ -661,6 +695,7 @@ export async function xuiGetNodeDomains(): Promise<Record<string, string>> {
     nodeDomains['0'] = 'vpn.btw.com';
   }
 
+  // 1. Получаем список нод из 3XUI API
   try {
     const data = await xuiRequest('/panel/api/nodes/list', 'GET');
     if (data.success && Array.isArray(data.obj)) {
@@ -669,17 +704,30 @@ export async function xuiGetNodeDomains(): Promise<Record<string, string>> {
           nodeDomains[String(node.id)] = node.address;
         }
       });
-      cachedNodeDomains = nodeDomains;
-      cachedNodeDomainsTime = now;
-      return nodeDomains;
     }
   } catch (err: any) {
-    console.error('Failed to fetch node list from 3XUI, using cached fallback if available:', err.message);
-    if (cachedNodeDomains) {
-      return cachedNodeDomains;
-    }
+    console.error('Failed to fetch node list from 3XUI:', err.message);
   }
 
+  // 2. Объединяем с кастомными переопределениями доменов нод из базы данных Postgres
+  try {
+    const setting = await prisma.appSetting.findUnique({
+      where: { key: 'xui_node_domains' }
+    });
+    if (setting && setting.value) {
+      const customDomains = JSON.parse(setting.value);
+      Object.entries(customDomains).forEach(([nodeId, domain]) => {
+        if (domain && typeof domain === 'string' && domain.trim() !== '') {
+          nodeDomains[nodeId] = domain.trim();
+        }
+      });
+    }
+  } catch (dbErr) {
+    console.warn('Failed to load custom node domains from database in xuiGetNodeDomains:', dbErr);
+  }
+
+  cachedNodeDomains = nodeDomains;
+  cachedNodeDomainsTime = now;
   return nodeDomains;
 }
 

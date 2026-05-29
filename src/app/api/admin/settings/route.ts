@@ -33,6 +33,18 @@ export async function GET() {
       btw_subscription_price: settingsMap.btw_subscription_price || '100',
       xui_telegram_bot_token: settingsMap.xui_telegram_bot_token || '',
       xui_telegram_bot_username: settingsMap.xui_telegram_bot_username || '',
+      awg_enabled: settingsMap.awg_enabled || 'false',
+      awg_api_url: settingsMap.awg_api_url || 'http://localhost:51821',
+      awg_api_password: settingsMap.awg_api_password || '',
+      awg_jc: settingsMap.awg_jc || '4',
+      awg_jmin: settingsMap.awg_jmin || '40',
+      awg_jmax: settingsMap.awg_jmax || '70',
+      awg_s1: settingsMap.awg_s1 || '5',
+      awg_s2: settingsMap.awg_s2 || '10',
+      awg_h1: settingsMap.awg_h1 || '1',
+      awg_h2: settingsMap.awg_h2 || '2',
+      awg_h3: settingsMap.awg_h3 || '3',
+      awg_h4: settingsMap.awg_h4 || '4',
     };
 
     return NextResponse.json({ success: true, settings: responseSettings });
