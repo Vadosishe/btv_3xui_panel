@@ -346,38 +346,17 @@ export async function amneziaSyncClient(
 
 /**
  * Обработать конфигурационный файл AWG:
- * 1. Исключить дублирующиеся параметры AWG (Jc, Jmin и т.д.)
- * 2. Установить актуальные значения параметров AWG из настроек
- * 3. Гарантировать, что маска в Address всегда равна /32
+ * Гарантировать, что маска в Address всегда равна /32
  */
-function processAwgConfig(
-  configText: string,
-  jcValues: { jc: string; jmin: string; jmax: string; s1: string; s2: string; h1: string; h2: string; h3: string; h4: string }
-): string {
+function processAwgConfig(configText: string): string {
   const lines = configText.split('\n');
   const cleanLines: string[] = [];
-  let interfaceIdx = -1;
-
-  const awgKeys = ['jc', 'jmin', 'jmax', 's1', 's2', 'h1', 'h2', 'h3', 'h4'];
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
     const lowerLine = line.toLowerCase();
 
-    // 1. Находим начало секции [Interface]
-    if (lowerLine === '[interface]') {
-      interfaceIdx = cleanLines.length;
-      cleanLines.push(lines[i]);
-      continue;
-    }
-
-    // 2. Исключаем существующие строки с параметрами AWG (чтобы избежать дублирования)
-    const isAwgParam = awgKeys.some(key => lowerLine.startsWith(`${key} `) || lowerLine.startsWith(`${key}=`));
-    if (isAwgParam) {
-      continue;
-    }
-
-    // 3. Гарантируем, что Address всегда заканчивается на /32
+    // Гарантируем, что Address всегда заканчивается на /32
     if (lowerLine.startsWith('address')) {
       const match = lines[i].match(/Address\s*=\s*([^/]+)\/\d+/i);
       if (match) {
@@ -387,22 +366,6 @@ function processAwgConfig(
     }
 
     cleanLines.push(lines[i]);
-  }
-
-  // 4. Инжектируем актуальные параметры AWG из настроек BTV-панели сразу под [Interface]
-  if (interfaceIdx !== -1) {
-    const awgParams = [
-      `Jc = ${jcValues.jc}`,
-      `Jmin = ${jcValues.jmin}`,
-      `Jmax = ${jcValues.jmax}`,
-      `S1 = ${jcValues.s1}`,
-      `S2 = ${jcValues.s2}`,
-      `H1 = ${jcValues.h1}`,
-      `H2 = ${jcValues.h2}`,
-      `H3 = ${jcValues.h3}`,
-      `H4 = ${jcValues.h4}`
-    ];
-    cleanLines.splice(interfaceIdx + 1, 0, ...awgParams);
   }
 
   return cleanLines.join('\n');
@@ -424,19 +387,6 @@ export async function amneziaGetClientConfigs(
     const assignedServers = servers.filter(s => s.enabled && assignedServerIds.includes(s.id));
     if (assignedServers.length === 0) return configsList;
 
-    const settings = await prisma.appSetting.findMany();
-    const settingsMap = new Map(settings.map(s => [s.key, s.value]));
-
-    const jc = settingsMap.get('awg_jc') || '4';
-    const jmin = settingsMap.get('awg_jmin') || '40';
-    const jmax = settingsMap.get('awg_jmax') || '70';
-    const s1 = settingsMap.get('awg_s1') || '5';
-    const s2 = settingsMap.get('awg_s2') || '10';
-    const h1 = settingsMap.get('awg_h1') || '1';
-    const h2 = settingsMap.get('awg_h2') || '2';
-    const h3 = settingsMap.get('awg_h3') || '3';
-    const h4 = settingsMap.get('awg_h4') || '4';
-
     await Promise.all(
       assignedServers.map(async (server) => {
         try {
@@ -453,7 +403,7 @@ export async function amneziaGetClientConfigs(
           let configText = await fetchPeerConfig(server, peer.id);
           if (!configText) return;
 
-          configText = processAwgConfig(configText, { jc, jmin, jmax, s1, s2, h1, h2, h3, h4 });
+          configText = processAwgConfig(configText);
 
           configsList.push({
             serverId: server.id,
@@ -493,20 +443,7 @@ export async function amneziaGetPeerConfigOnServer(
     let configText = await fetchPeerConfig(server, peer.id);
     if (!configText) return null;
 
-    const settings = await prisma.appSetting.findMany();
-    const settingsMap = new Map(settings.map(s => [s.key, s.value]));
-
-    const jc = settingsMap.get('awg_jc') || '4';
-    const jmin = settingsMap.get('awg_jmin') || '40';
-    const jmax = settingsMap.get('awg_jmax') || '70';
-    const s1 = settingsMap.get('awg_s1') || '5';
-    const s2 = settingsMap.get('awg_s2') || '10';
-    const h1 = settingsMap.get('awg_h1') || '1';
-    const h2 = settingsMap.get('awg_h2') || '2';
-    const h3 = settingsMap.get('awg_h3') || '3';
-    const h4 = settingsMap.get('awg_h4') || '4';
-
-    configText = processAwgConfig(configText, { jc, jmin, jmax, s1, s2, h1, h2, h3, h4 });
+    configText = processAwgConfig(configText);
 
     return configText;
   } catch (err: any) {
