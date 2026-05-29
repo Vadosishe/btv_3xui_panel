@@ -50,6 +50,8 @@ export default function SettingsPage() {
   const [newAwgName, setNewAwgName] = useState('');
   const [newAwgUrl, setNewAwgUrl] = useState('');
   const [newAwgPassword, setNewAwgPassword] = useState('');
+  const [testingServerId, setTestingServerId] = useState<string | null>(null);
+  const [isTestingNew, setIsTestingNew] = useState(false);
   const [awgJc, setAwgJc] = useState('4');
   const [awgJmin, setAwgJmin] = useState('40');
   const [awgJmax, setAwgJmax] = useState('70');
@@ -351,6 +353,52 @@ export default function SettingsPage() {
 
   const handleToggleAwgServer = (id: string) => {
     setAwgServers(awgServers.map((s: any) => s.id === id ? { ...s, enabled: !s.enabled } : s));
+  };
+
+  const handleTestAwgServer = async (server: any) => {
+    setTestingServerId(server.id);
+    try {
+      const res = await fetch('/api/admin/settings/amnezia-test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ apiUrl: server.apiUrl, apiPassword: server.apiPassword })
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert(`✅ Успех:\n${data.message}`);
+      } else {
+        alert(`❌ Ошибка подключения:\n${data.error}`);
+      }
+    } catch (e: any) {
+      alert(`❌ Ошибка сети: ${e.message}`);
+    } finally {
+      setTestingServerId(null);
+    }
+  };
+
+  const handleTestNewServer = async () => {
+    if (!newAwgUrl.trim()) {
+      alert('Пожалуйста, введите URL API для проверки');
+      return;
+    }
+    setIsTestingNew(true);
+    try {
+      const res = await fetch('/api/admin/settings/amnezia-test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ apiUrl: newAwgUrl.trim(), apiPassword: newAwgPassword.trim() })
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert(`✅ Успех:\n${data.message}`);
+      } else {
+        alert(`❌ Ошибка подключения:\n${data.error}`);
+      }
+    } catch (e: any) {
+      alert(`❌ Ошибка сети: ${e.message}`);
+    } finally {
+      setIsTestingNew(false);
+    }
   };
 
   if (isLoading) {
@@ -937,7 +985,28 @@ export default function SettingsPage() {
                           </span>
                           <span style={{ fontSize: '12px', color: '#9ca3af' }}>{server.apiUrl}</span>
                         </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <button
+                            type="button"
+                            onClick={() => handleTestAwgServer(server)}
+                            disabled={testingServerId === server.id}
+                            style={{
+                              background: 'rgba(6, 182, 212, 0.08)',
+                              border: '1px solid rgba(6, 182, 212, 0.2)',
+                              color: '#22d3ee',
+                              cursor: 'pointer',
+                              padding: '6px 12px',
+                              borderRadius: '6px',
+                              fontSize: '11px',
+                              fontWeight: 600,
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px'
+                            }}
+                          >
+                            {testingServerId === server.id ? <Loader size={12} className="spinner" /> : null}
+                            <span>Проверить связь</span>
+                          </button>
                           <button
                             type="button"
                             onClick={() => handleToggleAwgServer(server.id)}
@@ -1022,23 +1091,43 @@ export default function SettingsPage() {
                   </div>
                 </div>
 
-                <button
-                  type="button"
-                  className="btn-backup"
-                  onClick={handleAddAwgServer}
-                  style={{ 
-                    fontSize: '12px', 
-                    padding: '8px 15px', 
-                    alignSelf: 'flex-start', 
-                    marginTop: '15px',
-                    background: 'rgba(168, 85, 247, 0.05)',
-                    borderColor: 'rgba(168, 85, 247, 0.15)',
-                    color: '#c084fc'
-                  }}
-                >
-                  <Plus size={14} />
-                  <span>Добавить этот сервер Amnezia</span>
-                </button>
+                <div style={{ display: 'flex', gap: '10px', marginTop: '15px' }}>
+                  <button
+                    type="button"
+                    className="btn-backup"
+                    onClick={handleAddAwgServer}
+                    style={{ 
+                      fontSize: '12px', 
+                      padding: '8px 15px', 
+                      background: 'rgba(168, 85, 247, 0.05)',
+                      borderColor: 'rgba(168, 85, 247, 0.15)',
+                      color: '#c084fc'
+                    }}
+                  >
+                    <Plus size={14} />
+                    <span>Добавить этот сервер Amnezia</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    className="btn-backup"
+                    onClick={handleTestNewServer}
+                    disabled={isTestingNew}
+                    style={{ 
+                      fontSize: '12px', 
+                      padding: '8px 15px', 
+                      background: 'rgba(6, 182, 212, 0.05)',
+                      borderColor: 'rgba(6, 182, 212, 0.15)',
+                      color: '#22d3ee',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}
+                  >
+                    {isTestingNew ? <Loader size={14} className="spinner" /> : null}
+                    <span>Проверить соединение</span>
+                  </button>
+                </div>
               </div>
 
               {/* Общие обфускационные параметры AWG */}
