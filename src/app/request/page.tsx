@@ -46,6 +46,7 @@ export default function RequestPage() {
       `}</style>
       <style jsx>{`
         .page-wrapper {
+          width: 100vw;
           min-height: 100vh;
           display: flex;
           align-items: center;
