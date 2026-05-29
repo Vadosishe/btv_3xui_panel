@@ -58,8 +58,55 @@ export function startTelegramPolling() {
           }
         } else {
           if (res.status === 409) {
-            console.log('🤖 Telegram Webhook is active. Suspending background Long Polling to prevent conflicts.');
-            globalThis.telegramPollingActive = false;
+            console.log('🤖 Telegram Webhook conflict (409) detected. Running automatic webhook diagnostic...');
+            
+            try {
+              // Получаем ожидаемый URL вебука из настроек
+              const urlSetting = await prisma.appSetting.findUnique({
+                where: { key: 'app_panel_url' }
+              });
+              const appPanelUrl = urlSetting?.value || '';
+              
+              // Проверяем текущий статус вебука на стороне Telegram
+              const infoRes = await fetch(`https://api.telegram.org/bot${token}/getWebhookInfo`);
+              if (infoRes.ok) {
+                const infoData = await infoRes.json();
+                const currentWebhookUrl = infoData?.result?.url || '';
+                const expectedWebhookUrl = appPanelUrl && appPanelUrl.startsWith('https://') 
+                  ? `${appPanelUrl}/api/telegram/webhook` 
+                  : '';
+                
+                if (expectedWebhookUrl) {
+                  if (currentWebhookUrl !== expectedWebhookUrl) {
+                    console.log(`🤖 Webhook is pointing to an outdated URL: "${currentWebhookUrl}". Automatically repairing it to: "${expectedWebhookUrl}"`);
+                    const setRes = await fetch(`https://api.telegram.org/bot${token}/setWebhook?url=${encodeURIComponent(expectedWebhookUrl)}`);
+                    if (setRes.ok) {
+                      console.log('🤖 Telegram Webhook successfully updated & repaired.');
+                      globalThis.telegramPollingActive = false;
+                      continue;
+                    }
+                  } else {
+                    console.log('🤖 Webhook is already pointing to our current server. Long Polling is suspended as updates will be delivered via POST webhook.');
+                    globalThis.telegramPollingActive = false;
+                    continue;
+                  }
+                } else {
+                  // Если у нас локальный адрес или HTTPS не настроен, но вебук в Telegram почему-то активен
+                  console.log(`🤖 Server is configured for Long Polling, but an active webhook is registered: "${currentWebhookUrl}". Automatically deleting it...`);
+                  const delRes = await fetch(`https://api.telegram.org/bot${token}/deleteWebhook`);
+                  if (delRes.ok) {
+                    console.log('🤖 Active Telegram Webhook successfully deleted. Long Polling will resume on next cycle.');
+                    await new Promise((resolve) => setTimeout(resolve, 1500));
+                    continue;
+                  }
+                }
+              }
+            } catch (diagErr: any) {
+              console.error('Error running automatic webhook diagnostic/repair:', diagErr.message);
+            }
+            
+            // Если диагностика/ремонт не помогли, засыпаем на 10 сек
+            await new Promise((resolve) => setTimeout(resolve, 10000));
             continue;
           }
           // Если пришел ошибочный статус от Telegram (например, неверный токен)
