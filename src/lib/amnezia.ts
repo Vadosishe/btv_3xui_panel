@@ -197,12 +197,16 @@ export async function amneziaAddPeerOnServer(server: AwgServer, clientEmail: str
     }
 
     // Пробуем создать через Express API
-    let res = await awgServerRequest<any>(server, '/api/peers', 'POST', { name: clientEmail });
-    if (res && res.id) return res;
+    try {
+      let res = await awgServerRequest<any>(server, '/api/peers', 'POST', { name: clientEmail });
+      if (res && res.id) return res;
+    } catch (e) {
+      console.log(`[AWG API DETECT] POST /api/peers failed:`, e instanceof Error ? e.message : e);
+    }
 
     // Пробуем создать через Nuxt API
-    console.log(`[AWG API DETECT] POST /api/peers failed on ${server.name}. Trying POST /api/wireguard/client...`);
-    res = await awgServerRequest<any>(server, '/api/wireguard/client', 'POST', { name: clientEmail });
+    console.log(`[AWG API DETECT] Trying POST /api/wireguard/client...`);
+    let res = await awgServerRequest<any>(server, '/api/wireguard/client', 'POST', { name: clientEmail });
     if (res && res.id) return res;
 
     return null;
@@ -222,12 +226,16 @@ export async function amneziaDeletePeerOnServer(server: AwgServer, clientEmail: 
       const peer = peers.find(p => p.name.toLowerCase().trim() === clientEmail.toLowerCase().trim());
       if (peer) {
         // Пробуем Express DELETE
-        let res = await awgServerRequest(server, `/api/peers/${peer.id}`, 'DELETE');
-        if (res) return true;
+        try {
+          let res = await awgServerRequest(server, `/api/peers/${peer.id}`, 'DELETE');
+          if (res) return true;
+        } catch (e) {
+          console.log(`[AWG API DETECT] DELETE /api/peers/${peer.id} failed:`, e instanceof Error ? e.message : e);
+        }
 
         // Пробуем Nuxt DELETE
-        console.log(`[AWG API DETECT] DELETE /api/peers/${peer.id} failed. Trying DELETE /api/wireguard/client/${peer.id}...`);
-        res = await awgServerRequest(server, `/api/wireguard/client/${peer.id}`, 'DELETE');
+        console.log(`[AWG API DETECT] Trying DELETE /api/wireguard/client/${peer.id}...`);
+        let res = await awgServerRequest(server, `/api/wireguard/client/${peer.id}`, 'DELETE');
         if (res) return true;
       }
     }
@@ -249,12 +257,16 @@ export async function amneziaTogglePeerOnServer(server: AwgServer, clientEmail: 
         const action = enable ? 'enable' : 'disable';
 
         // Пробуем Express POST
-        let res = await awgServerRequest(server, `/api/peers/${peer.id}/${action}`, 'POST');
-        if (res) return true;
+        try {
+          let res = await awgServerRequest(server, `/api/peers/${peer.id}/${action}`, 'POST');
+          if (res) return true;
+        } catch (e) {
+          console.log(`[AWG API DETECT] POST /api/peers/${peer.id}/${action} failed:`, e instanceof Error ? e.message : e);
+        }
 
         // Пробуем Nuxt POST
-        console.log(`[AWG API DETECT] POST /api/peers/${peer.id}/${action} failed. Trying POST /api/wireguard/client/${peer.id}/${action}...`);
-        res = await awgServerRequest(server, `/api/wireguard/client/${peer.id}/${action}`, 'POST');
+        console.log(`[AWG API DETECT] Trying POST /api/wireguard/client/${peer.id}/${action}...`);
+        let res = await awgServerRequest(server, `/api/wireguard/client/${peer.id}/${action}`, 'POST');
         if (res) return true;
       }
     }
