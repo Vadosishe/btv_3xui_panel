@@ -294,9 +294,48 @@ export function generateConfigLink(
   const security = streamSettings.security || 'none';
   const network = streamSettings.network || 'tcp';
 
+  // Генерируем параметры транспорта (WS, gRPC, mKCP и т.д.) для полной переносимости настроек
+  let transportParams = '';
+  if (network === 'ws') {
+    const wsSettings = streamSettings.wsSettings || {};
+    const path = wsSettings.path || '/';
+    const host = wsSettings.headers?.Host || wsSettings.headers?.host || '';
+    transportParams += `&path=${encodeURIComponent(path)}`;
+    if (host) transportParams += `&host=${encodeURIComponent(host)}`;
+  } else if (network === 'grpc') {
+    const grpcSettings = streamSettings.grpcSettings || {};
+    const serviceName = grpcSettings.serviceName || '';
+    if (serviceName) transportParams += `&serviceName=${encodeURIComponent(serviceName)}`;
+    const mode = grpcSettings.mode || '';
+    if (mode) transportParams += `&mode=${encodeURIComponent(mode)}`;
+  } else if (network === 'http' || network === 'h2') {
+    const httpSettings = streamSettings.httpSettings || streamSettings.h2Settings || {};
+    const path = httpSettings.path || '/';
+    let host = '';
+    if (Array.isArray(httpSettings.host)) {
+      host = httpSettings.host[0] || '';
+    } else if (typeof httpSettings.host === 'string') {
+      host = httpSettings.host;
+    }
+    transportParams += `&path=${encodeURIComponent(path)}`;
+    if (host) transportParams += `&host=${encodeURIComponent(host)}`;
+  } else if (network === 'kcp') {
+    const kcpSettings = streamSettings.kcpSettings || {};
+    const headerType = kcpSettings.header?.type || 'none';
+    transportParams += `&headerType=${encodeURIComponent(headerType)}`;
+    const seed = kcpSettings.seed || '';
+    if (seed) transportParams += `&seed=${encodeURIComponent(seed)}`;
+  } else if (network === 'quic') {
+    const quicSettings = streamSettings.quicSettings || {};
+    const quicSecurity = quicSettings.security || 'none';
+    const key = quicSettings.key || '';
+    const headerType = quicSettings.header?.type || 'none';
+    transportParams += `&quicSecurity=${encodeURIComponent(quicSecurity)}&key=${encodeURIComponent(key)}&headerType=${encodeURIComponent(headerType)}`;
+  }
+
   if (protocol === 'vless') {
     // Формируем VLESS ссылку
-    let link = `vless://${clientUuid}@${customDomainOrIp}:${port}?type=${network}&security=${security}`;
+    let link = `vless://${clientUuid}@${customDomainOrIp}:${port}?type=${network}&security=${security}${transportParams}`;
 
     if (security === 'reality') {
       const realitySettings = streamSettings.realitySettings || {};
@@ -328,7 +367,7 @@ export function generateConfigLink(
 
   if (protocol === 'trojan') {
     // Формируем Trojan ссылку
-    let link = `trojan://${clientUuid}@${customDomainOrIp}:${port}?type=${network}&security=${security}`;
+    let link = `trojan://${clientUuid}@${customDomainOrIp}:${port}?type=${network}&security=${security}${transportParams}`;
     if (security === 'tls') {
       const tlsSettings = streamSettings.tlsSettings || {};
       const sni = tlsSettings.serverName || '';
