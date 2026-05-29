@@ -3,6 +3,9 @@ import prisma from '@/lib/prisma';
 import { xuiGetInbounds, generateConfigLink, xuiGetNodeDomains, xuiGetClientTraffic } from '@/lib/xui';
 import QRCode from 'qrcode';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export async function GET(
   req: Request,
   { params }: { params: Promise<{ token: string }> }
@@ -155,7 +158,12 @@ export async function GET(
     if (isBrowser) {
       if (!client) {
         return new NextResponse(renderErrorPage('Подписка не найдена', 'Убедитесь в корректности ссылки или обратитесь в поддержку.'), {
-          headers: { 'Content-Type': 'text/html; charset=utf-8' },
+          headers: {
+            'Content-Type': 'text/html; charset=utf-8',
+            'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
+            'Pragma': 'no-cache',
+            'Expires': '0',
+          },
           status: 404,
         });
       }
@@ -168,7 +176,12 @@ export async function GET(
           reason = `Обслуживание вашей компании (${client.company.name}) временно приостановлено.`;
         }
         return new NextResponse(renderErrorPage('Доступ к VPN ограничен', reason, supportLink), {
-          headers: { 'Content-Type': 'text/html; charset=utf-8' },
+          headers: {
+            'Content-Type': 'text/html; charset=utf-8',
+            'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
+            'Pragma': 'no-cache',
+            'Expires': '0',
+          },
         });
       }
 
@@ -234,7 +247,12 @@ export async function GET(
       }
 
       return new NextResponse(renderSubscriptionPortal(client, usedGBText, limitGBText, progressPercent, configLinks, supportLink, tgBotUsername, qrCodeDataUrl, clientAwgServers), {
-        headers: { 'Content-Type': 'text/html; charset=utf-8' },
+        headers: {
+          'Content-Type': 'text/html; charset=utf-8',
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+        },
       });
     }
 
@@ -317,11 +335,24 @@ function renderErrorPage(title: string, message: string, supportLink?: string): 
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <title>${title} | BTV VPN</title>
+      <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+      <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+      <meta http-equiv="Pragma" content="no-cache">
+      <meta http-equiv="Expires" content="0">
       <style>
+        :root {
+          --bg-gradient: radial-gradient(circle at 50% 0%, #151922 0%, #07090d 100%);
+          --card-bg: rgba(22, 28, 41, 0.45);
+          --card-border: rgba(239, 68, 68, 0.2);
+          --text-primary: #f3f4f6;
+          --text-secondary: #9ca3af;
+          --danger-glow: rgba(239, 68, 68, 0.15);
+        }
         body {
-          background: #08090c;
-          color: #f3f4f6;
-          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+          background: #07090d;
+          background-image: var(--bg-gradient);
+          color: var(--text-primary);
+          font-family: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
           display: flex;
           align-items: center;
           justify-content: center;
@@ -331,46 +362,57 @@ function renderErrorPage(title: string, message: string, supportLink?: string): 
           box-sizing: border-box;
         }
         .card {
-          background: rgba(20, 26, 38, 0.65);
-          backdrop-filter: blur(12px);
-          -webkit-backdrop-filter: blur(12px);
-          border: 1px solid rgba(239, 68, 68, 0.25);
-          border-radius: 16px;
-          padding: 30px;
+          background: var(--card-bg);
+          backdrop-filter: blur(20px);
+          -webkit-backdrop-filter: blur(20px);
+          border: 1px solid var(--card-border);
+          border-radius: 24px;
+          padding: 40px 30px;
           max-width: 450px;
           width: 100%;
           text-align: center;
-          box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+          box-shadow: 0 20px 40px rgba(0,0,0,0.5), 0 0 40px var(--danger-glow);
         }
         .icon {
-          color: #ef4444;
-          font-size: 48px;
-          margin-bottom: 15px;
+          font-size: 56px;
+          margin-bottom: 20px;
+          filter: drop-shadow(0 0 10px rgba(239, 68, 68, 0.4));
         }
         h1 {
-          font-size: 22px;
-          margin: 0 0 10px 0;
-          font-weight: 600;
+          font-size: 24px;
+          margin: 0 0 12px 0;
+          font-weight: 700;
+          letter-spacing: -0.5px;
+          background: linear-gradient(135deg, #ff6b6b, #ef4444);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
         }
         p {
-          color: #9ca3af;
+          color: var(--text-secondary);
           font-size: 14px;
-          line-height: 1.5;
-          margin: 0 0 25px 0;
+          line-height: 1.6;
+          margin: 0 0 30px 0;
         }
         .btn {
-          display: inline-block;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
           background: linear-gradient(135deg, #a855f7, #7c3aed);
           color: white;
-          padding: 12px 24px;
-          border-radius: 10px;
+          padding: 14px 28px;
+          border-radius: 12px;
           text-decoration: none;
           font-size: 14px;
-          font-weight: 500;
-          transition: transform 0.2s;
+          font-weight: 600;
+          box-shadow: 0 4px 15px rgba(124, 58, 237, 0.3);
+          transition: all 0.3s ease;
         }
         .btn:hover {
           transform: translateY(-2px);
+          box-shadow: 0 6px 20px rgba(124, 58, 237, 0.5);
+        }
+        .btn:active {
+          transform: translateY(0);
         }
       </style>
     </head>
@@ -415,92 +457,316 @@ function renderSubscriptionPortal(
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <title>Личный кабинет VPN | BTV</title>
+      <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+      <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+      <meta http-equiv="Pragma" content="no-cache">
+      <meta http-equiv="Expires" content="0">
       <script src="https://telegram.org/js/telegram-web-app.js"></script>
       <style>
+        :root {
+          --bg-gradient: radial-gradient(circle at 50% 0%, #111520 0%, #06080c 100%);
+          --card-bg: rgba(18, 24, 38, 0.55);
+          --card-border: rgba(255, 255, 255, 0.05);
+          --text-primary: #f3f4f6;
+          --text-secondary: #9ca3af;
+          --text-muted: #6b7280;
+          --cyan-neon: #00f0ff;
+          --purple-neon: #a855f7;
+          --gradient-primary: linear-gradient(135deg, #00f0ff 0%, #a855f7 100%);
+          --gradient-hover: linear-gradient(135deg, #02b6d4 0%, #8b5cf6 100%);
+          --success: #10b981;
+          --danger: #ef4444;
+        }
         body {
-          background: #0a0c10;
-          color: #f3f4f6;
-          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+          background: #06080c;
+          background-image: var(--bg-gradient);
+          color: var(--text-primary);
+          font-family: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
           min-height: 100vh;
           margin: 0;
-          padding: 20px;
+          padding: 24px 16px;
           display: flex;
           flex-direction: column;
           align-items: center;
-          justify-content: center;
           box-sizing: border-box;
         }
         .container {
-          max-width: 500px;
+          max-width: 480px;
           width: 100%;
         }
         .header {
           text-align: center;
-          margin-bottom: 20px;
+          margin-bottom: 24px;
+          position: relative;
         }
         .logo {
-          font-size: 26px;
+          font-size: 28px;
           font-weight: 800;
-          background: linear-gradient(135deg, #06b6d4, #a855f7);
+          letter-spacing: -0.5px;
+          background: var(--gradient-primary);
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
+          text-shadow: 0 0 30px rgba(0, 240, 255, 0.2);
         }
         .company-badge {
           display: inline-block;
-          background: rgba(255,255,255,0.06);
-          border: 1px solid rgba(255,255,255,0.08);
-          padding: 4px 12px;
-          border-radius: 20px;
+          background: rgba(255, 255, 255, 0.04);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          padding: 6px 16px;
+          border-radius: 30px;
           font-size: 11px;
-          color: #9ca3af;
-          margin-top: 5px;
+          font-weight: 500;
+          color: var(--text-secondary);
+          margin-top: 8px;
+          letter-spacing: 0.5px;
+          text-transform: uppercase;
+        }
+        .welcome-card {
+          background: rgba(18, 24, 38, 0.4);
+          border: 1px solid rgba(255, 255, 255, 0.03);
+          border-radius: 20px;
+          padding: 16px 24px;
+          text-align: center;
+          margin-bottom: 20px;
+          font-size: 14px;
+          color: var(--text-secondary);
+        }
+        .welcome-card strong {
+          color: #fff;
+          font-size: 16px;
         }
         .card {
-          background: rgba(20, 26, 38, 0.65);
-          backdrop-filter: blur(12px);
-          -webkit-backdrop-filter: blur(12px);
-          border: 1px solid rgba(255, 255, 255, 0.08);
-          border-radius: 20px;
-          padding: 25px;
-          box-shadow: 0 15px 35px rgba(0,0,0,0.6);
+          background: var(--card-bg);
+          backdrop-filter: blur(20px);
+          -webkit-backdrop-filter: blur(20px);
+          border: 1px solid var(--card-border);
+          border-radius: 24px;
+          padding: 24px;
+          box-shadow: 0 15px 35px rgba(0,0,0,0.4);
           margin-bottom: 20px;
+          transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+        .card:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 20px 45px rgba(0,0,0,0.5);
+          border-color: rgba(255, 255, 255, 0.08);
         }
         h2 {
-          font-size: 18px;
-          margin: 0 0 20px 0;
+          font-size: 14px;
+          margin: 0 0 16px 0;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          color: #fff;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+        .actions {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+        .btn-sub {
+          background: var(--gradient-primary);
+          color: white;
+          border: none;
+          padding: 14px;
+          border-radius: 14px;
+          font-size: 14px;
           font-weight: 600;
+          cursor: pointer;
+          box-shadow: 0 4px 15px rgba(0, 240, 255, 0.25);
+          transition: all 0.3s ease;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+        }
+        .btn-sub:hover {
+          background: var(--gradient-hover);
+          box-shadow: 0 6px 20px rgba(0, 240, 255, 0.4);
+          transform: translateY(-1px);
+        }
+        .btn-sub:active {
+          transform: translateY(1px);
+        }
+        .btn-secondary {
+          background: rgba(255, 255, 255, 0.04);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          color: var(--text-primary);
+          padding: 14px;
+          border-radius: 14px;
+          font-size: 14px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.2s;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+        }
+        .btn-secondary:hover {
+          background: rgba(255, 255, 255, 0.08);
+          border-color: rgba(255, 255, 255, 0.15);
+        }
+        .qr-wrapper {
           text-align: center;
+          margin-top: 16px;
+          padding-top: 16px;
+          border-top: 1px solid rgba(255, 255, 255, 0.06);
+        }
+        .qr-container {
+          background: #ffffff;
+          padding: 16px;
+          border-radius: 20px;
+          display: inline-block;
+          box-shadow: 0 0 25px rgba(0, 240, 255, 0.15);
+          margin-bottom: 12px;
+          transition: all 0.3s ease;
+        }
+        .qr-container:hover {
+          box-shadow: 0 0 35px rgba(168, 85, 247, 0.3);
+          transform: scale(1.02);
+        }
+        .qr-container img {
+          width: 150px;
+          height: 150px;
+          display: block;
+        }
+        .qr-desc {
+          font-size: 11px;
+          color: var(--text-secondary);
+          line-height: 1.5;
+          max-width: 280px;
+          margin: 0 auto;
+        }
+        .instructions-box {
+          background: rgba(168, 85, 247, 0.06);
+          border: 1px solid rgba(168, 85, 247, 0.15);
+          padding: 16px;
+          border-radius: 16px;
+          font-size: 12px;
+          color: #e9d5ff;
+          line-height: 1.6;
+          margin-bottom: 16px;
+        }
+        .instructions-box strong {
+          color: #fff;
+          font-size: 13px;
+          display: block;
+          margin-bottom: 6px;
+        }
+        .instructions-cyan {
+          background: rgba(0, 240, 255, 0.04);
+          border: 1px solid rgba(0, 240, 255, 0.15);
+          color: #e0f7fa;
+        }
+        .btn-download {
+          background: rgba(168, 85, 247, 0.12);
+          border: 1px solid rgba(168, 85, 247, 0.3);
+          color: #e9d5ff;
+          padding: 14px;
+          border-radius: 14px;
+          font-size: 13px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.3s ease;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 10px;
+          width: 100%;
+        }
+        .btn-download:hover {
+          background: rgba(168, 85, 247, 0.2);
+          border-color: rgba(168, 85, 247, 0.6);
+          box-shadow: 0 0 15px rgba(168, 85, 247, 0.2);
+          transform: translateY(-1px);
+        }
+        .config-item {
+          background: rgba(0, 0, 0, 0.2);
+          border: 1px solid rgba(255, 255, 255, 0.04);
+          padding: 12px 18px;
+          border-radius: 12px;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 10px;
+          font-size: 13px;
+          transition: all 0.2s;
+        }
+        .config-item:hover {
+          border-color: rgba(255, 255, 255, 0.08);
+          background: rgba(0, 0, 0, 0.25);
+        }
+        .config-name {
+          font-weight: 600;
+          color: #fff;
+        }
+        .copy-action {
+          color: var(--cyan-neon);
+          cursor: pointer;
+          font-weight: 700;
+          transition: color 0.2s;
+        }
+        .copy-action:hover {
+          color: #fff;
+          text-shadow: 0 0 8px var(--cyan-neon);
+        }
+        .happ-links {
+          display: flex;
+          gap: 12px;
+          margin-top: 12px;
+        }
+        .btn-market {
+          flex: 1;
+          text-align: center;
+          padding: 10px;
+          font-size: 11px;
+          font-weight: 600;
+          text-decoration: none;
+          border-radius: 10px;
+          border: 1px solid rgba(0, 240, 255, 0.25);
+          background: rgba(0, 240, 255, 0.08);
+          color: var(--cyan-neon);
+          transition: all 0.2s;
+        }
+        .btn-market:hover {
+          background: rgba(0, 240, 255, 0.15);
+          border-color: var(--cyan-neon);
+          box-shadow: 0 0 10px rgba(0, 240, 255, 0.15);
         }
         .progress-section {
           display: flex;
           flex-direction: column;
           align-items: center;
-          margin-bottom: 25px;
+          margin: 16px 0 24px 0;
         }
         .progress-circle {
           position: relative;
-          width: 120px;
-          height: 120px;
-          margin-bottom: 15px;
+          width: 140px;
+          height: 140px;
+          margin-bottom: 16px;
         }
         .progress-circle svg {
-          width: 120px;
-          height: 120px;
+          width: 140px;
+          height: 140px;
           transform: rotate(-90deg);
         }
         .progress-circle circle {
           fill: none;
-          stroke-width: 8;
+          stroke-width: 10;
         }
         .progress-circle .bg {
-          stroke: rgba(255,255,255,0.05);
+          stroke: rgba(255, 255, 255, 0.04);
         }
         .progress-circle .bar {
-          stroke: url(#gradient);
-          stroke-dasharray: 351.8;
-          stroke-dashoffset: ${351.8 - (351.8 * progress) / 100};
+          stroke: url(#cyan-purple-grad);
+          stroke-dasharray: 377;
+          stroke-dashoffset: var(--dashoffset);
           stroke-linecap: round;
-          transition: stroke-dashoffset 1s ease-in-out;
+          transition: stroke-dashoffset 1.2s cubic-bezier(0.4, 0, 0.2, 1);
         }
         .progress-text {
           position: absolute;
@@ -511,109 +777,143 @@ function renderSubscriptionPortal(
           justify-content: center;
         }
         .progress-val {
-          font-size: 22px;
-          font-weight: 700;
+          font-size: 26px;
+          font-weight: 800;
+          color: #fff;
+          letter-spacing: -0.5px;
         }
         .progress-label {
           font-size: 10px;
-          color: #9ca3af;
+          color: var(--text-secondary);
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
           margin-top: 2px;
+        }
+        .usage-text {
+          font-size: 14px;
+          color: var(--text-secondary);
+          text-align: center;
+        }
+        .usage-text strong {
+          color: #fff;
         }
         .stats-grid {
           display: grid;
           grid-template-columns: 1fr 1fr;
-          gap: 15px;
-          margin-bottom: 20px;
-          border-top: 1px solid rgba(255,255,255,0.06);
+          gap: 16px;
+          border-top: 1px solid rgba(255, 255, 255, 0.06);
           padding-top: 20px;
+          margin-top: 20px;
         }
         .stat-box {
           text-align: center;
+          background: rgba(0, 0, 0, 0.15);
+          border-radius: 16px;
+          padding: 12px;
+          border: 1px solid rgba(255, 255, 255, 0.02);
         }
         .stat-val {
           font-size: 15px;
-          font-weight: 600;
+          font-weight: 700;
+        }
+        .stat-val.active {
+          color: var(--success);
+          text-shadow: 0 0 10px rgba(16, 185, 129, 0.15);
         }
         .stat-lbl {
           font-size: 10px;
-          color: #6b7280;
-          margin-top: 3px;
+          color: var(--text-muted);
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          margin-top: 4px;
         }
-        .actions {
-          display: flex;
-          flex-direction: column;
-          gap: 10px;
-        }
-        .btn-sub {
-          background: linear-gradient(135deg, #06b6d4, #0891b2);
-          color: white;
-          border: none;
-          padding: 12px;
-          border-radius: 10px;
-          font-size: 13px;
-          font-weight: 600;
-          cursor: pointer;
-          transition: transform 0.2s, opacity 0.2s;
-        }
-        .btn-sub:hover {
-          transform: translateY(-1px);
-          opacity: 0.95;
-        }
-        .btn-tg {
-          background: rgba(168, 85, 247, 0.1);
-          border: 1px solid rgba(168, 85, 247, 0.3);
-          color: #c084fc;
-          padding: 12px;
-          border-radius: 10px;
-          font-size: 13px;
-          font-weight: 600;
-          text-align: center;
-          cursor: pointer;
-          transition: background 0.2s;
-        }
-        .btn-tg:hover {
-          background: rgba(168, 85, 247, 0.15);
-        }
-        .configs-section {
-          margin-top: 15px;
-          border-top: 1px solid rgba(255,255,255,0.06);
-          padding-top: 20px;
-        }
-        .config-item {
-          background: rgba(0,0,0,0.25);
-          border: 1px solid rgba(255,255,255,0.04);
-          padding: 10px 15px;
-          border-radius: 8px;
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 8px;
+        .tg-status-box {
+          background: rgba(16, 185, 129, 0.04);
+          border: 1px solid rgba(16, 185, 129, 0.15);
+          padding: 16px;
+          border-radius: 16px;
           font-size: 12px;
+          color: #d1fae5;
+          line-height: 1.6;
+          margin-bottom: 16px;
         }
-        .config-name {
-          font-weight: 500;
-          color: #e5e7eb;
+        .tg-status-box strong {
+          color: #fff;
+          font-size: 13px;
+          display: block;
+          margin-bottom: 4px;
         }
-        .copy-link {
-          color: #06b6d4;
-          cursor: pointer;
+        .tg-unbind-btn {
+          display: block;
+          width: 100%;
+          text-decoration: none;
+          text-align: center;
+          background: rgba(239, 68, 68, 0.08);
+          border: 1px solid rgba(239, 68, 68, 0.2);
+          color: #fca5a5;
+          padding: 12px;
+          border-radius: 12px;
+          font-size: 12px;
           font-weight: 600;
+          transition: all 0.2s;
+          cursor: pointer;
         }
-        .copy-link:hover {
-          text-decoration: underline;
+        .tg-unbind-btn:hover {
+          background: rgba(239, 68, 68, 0.15);
+          border-color: rgba(239, 68, 68, 0.4);
+        }
+        .btn-tg-bind {
+          display: block;
+          width: 100%;
+          text-decoration: none;
+          text-align: center;
+          background: linear-gradient(135deg, #0284c7, #0369a1);
+          color: white;
+          padding: 14px;
+          border-radius: 14px;
+          font-size: 13px;
+          font-weight: 600;
+          box-shadow: 0 4px 15px rgba(2, 132, 199, 0.2);
+          transition: all 0.3s;
+        }
+        .btn-tg-bind:hover {
+          background: linear-gradient(135deg, #0ea5e9, #0284c7);
+          box-shadow: 0 6px 20px rgba(2, 132, 199, 0.35);
+          transform: translateY(-1px);
+        }
+        .btn-support {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          text-decoration: none;
+          background: rgba(255, 255, 255, 0.04);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          color: #fff;
+          padding: 14px;
+          border-radius: 14px;
+          font-size: 13px;
+          font-weight: 600;
+          transition: all 0.2s;
+        }
+        .btn-support:hover {
+          background: rgba(255, 255, 255, 0.08);
+          border-color: rgba(255, 255, 255, 0.15);
+          box-shadow: 0 4px 15px rgba(255, 255, 255, 0.05);
         }
         .toast {
           position: fixed;
-          bottom: 20px;
-          background: #10b981;
+          bottom: 24px;
+          background: var(--success);
           color: white;
-          padding: 10px 20px;
-          border-radius: 8px;
-          font-size: 12px;
+          padding: 12px 24px;
+          border-radius: 12px;
+          font-size: 13px;
           font-weight: 600;
-          box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+          box-shadow: 0 10px 25px rgba(0,0,0,0.3);
           display: none;
-          animation: slideUp 0.3s;
+          animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+          z-index: 1000;
         }
         @keyframes slideUp {
           from { transform: translateY(100px); opacity: 0; }
@@ -623,168 +923,181 @@ function renderSubscriptionPortal(
     </head>
     <body>
       <div class="container">
+        <!-- Шапка панели -->
         <div class="header">
           <div class="logo">BTV VPN SERVICE</div>
           <div class="company-badge">${client.company.name}</div>
         </div>
 
+        <div class="welcome-card">
+          Привет, <strong>${client.name}</strong>! Ваше VPN-подключение готово к работе. Ниже представлены настройки и статистика.
+        </div>
+
+        <!-- 1. ПОДКЛЮЧЕНИЕ: ССЫЛКИ И QR-КОД (Сверху) -->
         <div class="card">
-          <h2>Привет, ${client.name}!</h2>
+          <h2>🛜 Быстрое подключение</h2>
+          <div class="actions">
+            <button class="btn-sub" onclick="copySubscription()">
+              <span>📋</span> Скопировать ссылку подписки
+            </button>
+          </div>
+
+          <!-- Секция QR-кода -->
+          ${qrCodeDataUrl ? `
+            <div class="qr-wrapper">
+              <div class="qr-container">
+                <img src="${qrCodeDataUrl}" alt="Subscription QR Code" />
+              </div>
+              <div class="qr-desc">
+                Отсканируйте этот QR-код в мобильном приложении (v2rayNG / Sing-box / Shadowrocket) для автоматического импорта конфигураций.
+              </div>
+            </div>
+          ` : `
+            <div class="qr-wrapper">
+              <div class="qr-desc" style="color: var(--text-muted);">QR-код подписки временно недоступен</div>
+            </div>
+          `}
+        </div>
+
+        <!-- 2. СЕКЦИЯ AMNEZIA WG (Сверху, если привязано) -->
+        ${clientAwgServers.length > 0 ? `
+          <div class="card">
+            <h2>🛡️ Ультрастойкий Amnezia WG (AWG)</h2>
+            <div class="instructions-box">
+              <strong>Инструкция по настройке:</strong>
+              1. Скачайте и установите приложение <strong>AmneziaVPN</strong>.<br/>
+              2. Скачайте файл конфигурации (.conf) для нужной локации ниже.<br/>
+              3. В приложении выберите «Импортировать файл настроек» и выберите скачанный файл.
+            </div>
+            <div class="actions" style="gap: 10px;">
+              ${clientAwgServers.map(server => `
+                <button class="btn-download" onclick="downloadAmneziaConfig('${server.id}')">
+                  <span>📥</span>
+                  <span>Скачать конфиг: <b>${server.name}</b> (.conf)</span>
+                </button>
+              `).join('')}
+            </div>
+          </div>
+        ` : `
+          <div class="card">
+            <h2>🛡️ Резервный канал AmneziaVPN</h2>
+            <div class="instructions-box">
+              <strong>Инструкция по настройке:</strong>
+              1. Скачайте файл резервного конфига по кнопке ниже.<br/>
+              2. Установите приложение <strong>AmneziaVPN</strong>.<br/>
+              3. Откройте приложение, перейдите в «Импортировать резервную копию или файл настройки» и откройте скачанный <strong>.vpn</strong> файл.
+            </div>
+            <button class="btn-download" onclick="downloadAmneziaConfig()">
+              <span>📥</span> Скачать конфиг AmneziaVPN (.vpn)
+            </button>
+          </div>
+        `}
+
+        <!-- 3. VLESS КЛЮЧИ ДЛЯ РУЧНОГО ИМПОРТА (Сверху) -->
+        ${configLinks.length > 0 ? `
+          <div class="card">
+            <h2>🔑 VLESS Ключи импорта</h2>
+            <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 12px; line-height: 1.4;">
+              Если вы настраиваете VPN вручную, скопируйте любой из этих ключей и импортируйте его в v2rayNG / Nekobox / Shadowrocket.
+            </div>
+            <div class="actions" style="gap: 8px;">
+              ${configLinks.map((link, idx) => {
+                const proto = link.split('://')[0].toUpperCase();
+                const nodeName = link.includes('#') ? decodeURIComponent(link.split('#')[1]).split('_')[0] : `Локация ${idx + 1}`;
+                return `
+                  <div class="config-item">
+                    <span class="config-name">${nodeName} (${proto})</span>
+                    <span class="copy-action" onclick="copyConfig(${idx})">Копировать</span>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          </div>
+        ` : ''}
+
+        <!-- 4. БЫСТРАЯ НАСТРОЙКА HAPP (Сверху) -->
+        <div class="card">
+          <h2>⚡ Настройка в 1 клик (HAPP)</h2>
+          <div class="instructions-box instructions-cyan">
+            <strong>Самый простой способ подключения:</strong>
+            1. Скопируйте ссылку подписки кнопкой выше.<br/>
+            2. Скачайте приложение <strong>Happ - Proxy Utility</strong>:<br/>
+            <div class="happ-links">
+              <a href="https://apps.apple.com/app/happ-proxy-utility/id6475730248" target="_blank" class="btn-market">🍏 Скачать для iOS</a>
+              <a href="https://play.google.com/store/apps/details?id=com.happ.proxy" target="_blank" class="btn-market">🤖 Android</a>
+            </div>
+            3. Запустите <strong>Happ</strong>, он автоматически распознает ссылку подписки из буфера обмена. Подтвердите добавление и нажмите кнопку старта в центре!
+          </div>
+        </div>
+
+        <!-- 5. ТЕКУЩАЯ ИНФОРМАЦИЯ И СТАТИСТИКА (Снизу) -->
+        <div class="card">
+          <h2>📊 Состояние подключения</h2>
           
           <div class="progress-section">
-            <div class="progress-circle">
-              <svg>
+            <div class="progress-circle" style="--dashoffset: ${377 - (377 * progress) / 100}">
+              <svg viewBox="0 0 140 140">
                 <defs>
-                  <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stop-color="#06b6d4" />
+                  <linearGradient id="cyan-purple-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#00f0ff" />
                     <stop offset="100%" stop-color="#a855f7" />
                   </linearGradient>
                 </defs>
-                <circle class="bg" cx="60" cy="60" r="56" />
-                <circle class="bar" cx="60" cy="60" r="56" />
+                <circle class="bg" cx="70" cy="70" r="60" />
+                <circle class="bar" cx="70" cy="70" r="60" />
               </svg>
               <div class="progress-text">
                 <div class="progress-val">${progress}%</div>
-                <div class="progress-label">использовано</div>
+                <div class="progress-label">Трафик</div>
               </div>
             </div>
-            <div style="font-size: 13px; color: #9ca3af;">
-              Потрачено <strong>${usedGB} GB</strong> из <strong>${limitGB}</strong>
+            
+            <div class="usage-text">
+              Использовано <strong>${usedGB} GB</strong> из <strong>${limitGB}</strong>
             </div>
           </div>
 
           <div class="stats-grid">
             <div class="stat-box">
-              <div class="stat-val" style="color: #10b981;">Активна</div>
+              <div class="stat-val active">Активна</div>
               <div class="stat-lbl">Статус VPN</div>
             </div>
             <div class="stat-box">
-              <div class="stat-val">${expirationText}</div>
+              <div class="stat-val" style="color: #fff;">${expirationText}</div>
               <div class="stat-lbl">Действует до</div>
             </div>
           </div>
+        </div>
 
-          <div class="actions">
-            <button class="btn-sub" onclick="copySubscription()">Скопировать ссылку для приложений</button>
-            <a href="${supportLink}" class="btn-tg" target="_blank">Связаться с техподдержкой</a>
-          </div>
-
-          <!-- Секция Быстрой настройки HAPP (Однокнопочный клиент) -->
-          <div class="configs-section" style="border-top: 1px solid rgba(255,255,255,0.06); margin-top: 20px; padding-top: 20px;">
-            <div style="font-size: 11px; color: #9ca3af; margin-bottom: 12px; text-align: center; display: flex; align-items: center; justify-content: center; gap: 6px;">
-              <span>⚡ Быстрое подключение в 1 клик (Рекомендуется)</span>
-            </div>
-            <div style="background: rgba(6, 182, 212, 0.05); border: 1px solid rgba(6, 182, 212, 0.15); padding: 15px; border-radius: 12px; text-align: left; font-size: 12px; color: #9be9f8; line-height: 1.5; margin-bottom: 12px;">
-              <strong style="color: #fff; display: block; margin-bottom: 6px;">Самый простой способ настройки:</strong>
-              1. Скопируйте ссылку подписки кнопкой выше.<br/>
-              2. Установите однокнопочное приложение <strong>Happ - Proxy Utility</strong>:<br/>
-              <div style="display: flex; gap: 10px; margin: 10px 0;">
-                <a href="https://apps.apple.com/app/happ-proxy-utility/id6475730248" target="_blank" class="btn-tg" style="flex: 1; text-align: center; padding: 8px; font-size: 11px; text-decoration: none; display: block; border-color: rgba(6, 182, 212, 0.3); color: #22d3ee;">🍏 Скачать для iOS</a>
-                <a href="https://play.google.com/store/apps/details?id=com.happ.proxy" target="_blank" class="btn-tg" style="flex: 1; text-align: center; padding: 8px; font-size: 11px; text-decoration: none; display: block; border-color: rgba(6, 182, 212, 0.3); color: #22d3ee;">🤖 Скачать для Android</a>
+        <!-- 6. TELEGRAM БОТ И УВЕДОМЛЕНИЯ (Снизу) -->
+        ${cleanTgBotUsername ? `
+          <div class="card">
+            <h2>🤖 Telegram Бот и Контроль</h2>
+            ${client.tgId ? `
+              <div class="tg-status-box">
+                <strong>✅ Уведомления активны:</strong>
+                Привязан к аккаунту: <b>${client.telegramUsername ? `@${client.telegramUsername}` : `имя: ${client.telegramFirstName || 'Пользователь'}`}</b> (ID: ${client.tgId})<br/>
+                Бот присылает предупреждения об окончании трафика или лимитов подписки.
               </div>
-              3. Откройте приложение <strong>Happ</strong>, подтвердите автоматический импорт ссылки из буфера обмена и нажмите круглую кнопку подключения в центре. VPN готов к работе! 🎉
-            </div>
-          </div>
-
-          <!-- Секция Telegram бота (Уведомления и контроль) -->
-          ${cleanTgBotUsername ? `
-            <div class="configs-section" style="border-top: 1px solid rgba(255,255,255,0.06); margin-top: 20px; padding-top: 20px;">
-              <div style="font-size: 11px; color: #9ca3af; margin-bottom: 12px; text-align: center; display: flex; align-items: center; justify-content: center; gap: 6px;">
-                <span>🤖 Уведомления и Бот в Telegram</span>
-              </div>
-              ${client.tgId ? `
-                <div style="background: rgba(16, 185, 129, 0.05); border: 1px solid rgba(16, 185, 129, 0.15); padding: 15px; border-radius: 12px; text-align: left; font-size: 12px; color: #34d399; line-height: 1.5; margin-bottom: 12px;">
-                  <strong style="color: #fff; display: block; margin-bottom: 4px;">✅ Telegram привязан:</strong>
-                  Аккаунт: <b>${client.telegramUsername ? `@${client.telegramUsername}` : `имя: ${client.telegramFirstName || 'Пользователь'}`}</b> (ID: ${client.tgId})<br/>
-                  Вы получаете автоматические оповещения о VPN-подключении в мессенджере.
-                </div>
-                <a href="?action=unbind" class="btn-sub" style="display: block; text-decoration: none; text-align: center; background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.25); color: #f87171;">
-                  ❌ Отвязать аккаунт Telegram
-                </a>
-              ` : `
-                <div style="background: rgba(6, 182, 212, 0.05); border: 1px solid rgba(6, 182, 212, 0.15); padding: 15px; border-radius: 12px; text-align: left; font-size: 12px; color: #9be9f8; line-height: 1.5; margin-bottom: 12px;">
-                  Привяжите нашего Telegram-бота, чтобы получать автоматические уведомления об окончании трафика или подписки и проверять баланс командой <b>/status</b>!
-                </div>
-                <a href="javascript:void(0)" onclick="openTgBot('https://t.me/${cleanTgBotUsername}?start=${client.subscriptionToken}')" class="btn-sub" style="display: block; text-decoration: none; text-align: center; background: linear-gradient(135deg, #0284c7, #0369a1);">
-                  🔗 Привязать Telegram-бота
-                </a>
-              `}
-            </div>
-          ` : ''}
-
-          <!-- Секция QR-кода подписки -->
-          <div class="configs-section" style="border-top: 1px solid rgba(255,255,255,0.06); margin-top: 20px; padding-top: 20px; text-align: center;">
-            <div style="font-size: 11px; color: #9ca3af; margin-bottom: 12px; display: flex; align-items: center; justify-content: center; gap: 6px;">
-              <span>📱 QR-код подписки</span>
-            </div>
-            ${qrCodeDataUrl ? `
-              <div style="background: #fff; padding: 15px; border-radius: 12px; display: inline-block; box-shadow: 0 5px 25px rgba(0,0,0,0.5); margin-bottom: 10px;">
-                <img src="${qrCodeDataUrl}" alt="Subscription QR Code" style="width: 160px; height: 160px; display: block;" />
-              </div>
-              <div style="font-size: 11px; color: #6b7280; line-height: 1.4; max-width: 250px; margin: 0 auto;">
-                Сканируйте в v2rayNG / Sing-box / Shadowrocket для быстрого импорта
-              </div>
+              <a href="?action=unbind" class="tg-unbind-btn">
+                ❌ Отвязать аккаунт Telegram
+              </a>
             ` : `
-              <div style="font-size: 11px; color: var(--text-muted);">QR-код временно недоступен</div>
+              <div class="instructions-box instructions-cyan" style="margin-bottom: 16px;">
+                Подключите Telegram-бота, чтобы проверять баланс командой <b>/status</b> и мгновенно получать уведомления, когда подходит срок окончания подписки или лимитов трафика.
+              </div>
+              <a href="javascript:void(0)" onclick="openTgBot('https://t.me/${cleanTgBotUsername}?start=${client.subscriptionToken}')" class="btn-tg-bind">
+                🔗 Привязать Telegram-бота
+              </a>
             `}
           </div>
+        ` : ''}
 
-          <!-- Секция AmneziaWG (Ультрастойкий протокол) -->
-          ${clientAwgServers.length > 0 ? `
-            <div class="configs-section" style="border-top: 1px solid rgba(255,255,255,0.06); margin-top: 20px; padding-top: 20px;">
-              <div style="font-size: 11px; color: #9ca3af; margin-bottom: 12px; text-align: center; display: flex; align-items: center; justify-content: center; gap: 6px;">
-                <span>🛡️ Ультрастойкий протокол Amnezia WG (AWG)</span>
-              </div>
-              <div style="background: rgba(168, 85, 247, 0.05); border: 1px solid rgba(168, 85, 247, 0.15); padding: 15px; border-radius: 12px; text-align: left; font-size: 12px; color: #d8b4fe; line-height: 1.5; margin-bottom: 12px;">
-                <strong style="color: #fff; display: block; margin-bottom: 4px;">Как подключиться:</strong>
-                1. Установите официальное приложение <strong>AmneziaVPN</strong>.<br/>
-                2. Скачайте файл конфигурации WireGuard (.conf) для нужной локации ниже.<br/>
-                3. Добавьте подключение через «Импорт файла настроек» в приложении.
-              </div>
-              <div style="display: flex; flex-direction: column; gap: 10px;">
-                ${clientAwgServers.map(server => `
-                  <button class="btn-tg" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; border-color: rgba(168, 85, 247, 0.4); color: #e9d5ff; background: rgba(168, 85, 247, 0.12); cursor: pointer; text-decoration: none;" onclick="downloadAmneziaConfig('${server.id}')">
-                    <span>📥</span>
-                    <span>Скачать конфиг: <b>${server.name}</b> (.conf)</span>
-                  </button>
-                `).join('')}
-              </div>
-            </div>
-          ` : `
-            <div class="configs-section" style="border-top: 1px solid rgba(255,255,255,0.06); margin-top: 20px; padding-top: 20px;">
-              <div style="font-size: 11px; color: #9ca3af; margin-bottom: 12px; text-align: center; display: flex; align-items: center; justify-content: center; gap: 6px;">
-                <span>🛡️ Резервный канал AmneziaVPN</span>
-              </div>
-              <div style="background: rgba(168, 85, 247, 0.05); border: 1px solid rgba(168, 85, 247, 0.15); padding: 15px; border-radius: 12px; text-align: left; font-size: 12px; color: #d8b4fe; line-height: 1.5; margin-bottom: 12px;">
-                <strong style="color: #fff; display: block; margin-bottom: 4px;">Как подключиться:</strong>
-                1. Скачайте файл конфигурации по кнопке ниже.<br/>
-                2. Установите официальный клиент <strong>AmneziaVPN</strong>.<br/>
-                3. Выберите «Импортировать резервную копию или файл настройки» и откройте скачанный <strong>.vpn</strong> файл.
-              </div>
-              <button class="btn-tg" style="width: 100%; display: block; border-color: rgba(168, 85, 247, 0.4); color: #e9d5ff; background: rgba(168, 85, 247, 0.12); cursor: pointer;" onclick="downloadAmneziaConfig()">
-                📥 Скачать конфиг AmneziaVPN (.vpn)
-              </button>
-            </div>
-          `}
+        <!-- 7. ТЕХПОДДЕРЖКА (Снизу) -->
+        <a href="${supportLink}" class="btn-support" target="_blank">
+          💬 Связаться с техподдержкой
+        </a>
 
-          ${configLinks.length > 0 ? `
-            <div class="configs-section">
-              <div style="font-size: 11px; color: #6b7280; margin-bottom: 10px; text-align: center;">
-                Ключи для ручного импорта VLESS:
-              </div>
-              ${configLinks.map((link, idx) => {
-                const proto = link.split('://')[0].toUpperCase();
-                const nodeName = link.includes('#') ? decodeURIComponent(link.split('#')[1]).split('_')[0] : `Сервер ${idx + 1}`;
-                return `
-                  <div class="config-item">
-                    <span class="config-name">${nodeName} (${proto})</span>
-                    <span class="copy-link" onclick="copyConfig(${idx})">Копировать</span>
-                  </div>
-                `;
-              }).join('')}
-            </div>
-          ` : ''}
-        </div>
       </div>
 
       <div class="toast" id="toast">Ссылка успешно скопирована!</div>
