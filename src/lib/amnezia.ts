@@ -137,18 +137,75 @@ async function awgServerRequest<T = any>(
 }
 
 /**
+ * Вспомогательный метод для получения списка пиров с автоматическим определением API (Express / Nuxt)
+ */
+async function fetchPeers(server: AwgServer): Promise<any[] | null> {
+  // 1. Пробуем Express API (/api/peers)
+  let peers = await awgServerRequest<any[]>(server, '/api/peers', 'GET');
+  if (Array.isArray(peers)) return peers;
+
+  // 2. Если Express API вернул 404 или ошибку, пробуем Nuxt API (/api/wireguard/client)
+  console.log(`[AWG API DETECT] GET /api/peers failed on ${server.name}. Trying GET /api/wireguard/client...`);
+  peers = await awgServerRequest<any[]>(server, '/api/wireguard/client', 'GET');
+  if (Array.isArray(peers)) return peers;
+
+  return null;
+}
+
+/**
+ * Вспомогательный метод для скачивания конфига пира с автоматическим определением API (Express / Nuxt)
+ */
+async function fetchPeerConfig(server: AwgServer, peerId: string): Promise<string | null> {
+  const baseUrl = server.apiUrl.endsWith('/') ? server.apiUrl.slice(0, -1) : server.apiUrl;
+  const headers: Record<string, string> = {};
+  const sessionCookie = awgSessionCookies[server.id];
+  if (sessionCookie) {
+    headers['Cookie'] = sessionCookie;
+  }
+
+  // 1. Пробуем Express API (/api/peers/:id/config)
+  try {
+    const res = await fetch(`${baseUrl}/api/peers/${peerId}/config`, { headers, cache: 'no-store' });
+    if (res.ok) {
+      return await res.text();
+    }
+  } catch (e) {}
+
+  // 2. Пробуем Nuxt API (/api/wireguard/client/:id/configuration)
+  try {
+    console.log(`[AWG API DETECT] GET /api/peers/${peerId}/config failed on ${server.name}. Trying GET /api/wireguard/client/${peerId}/configuration...`);
+    const res = await fetch(`${baseUrl}/api/wireguard/client/${peerId}/configuration`, { headers, cache: 'no-store' });
+    if (res.ok) {
+      return await res.text();
+    }
+  } catch (e) {}
+
+  return null;
+}
+
+/**
  * Создать клиента (пира) на конкретном сервере Amnezia
  */
 export async function amneziaAddPeerOnServer(server: AwgServer, clientEmail: string): Promise<any | null> {
   try {
-    const peers = await awgServerRequest<any[]>(server, '/api/peers', 'GET');
+    const peers = await fetchPeers(server);
     if (Array.isArray(peers)) {
       const existing = peers.find(p => p.name.toLowerCase().trim() === clientEmail.toLowerCase().trim());
       if (existing) {
         return existing;
       }
     }
-    return await awgServerRequest<any>(server, '/api/peers', 'POST', { name: clientEmail });
+
+    // Пробуем создать через Express API
+    let res = await awgServerRequest<any>(server, '/api/peers', 'POST', { name: clientEmail });
+    if (res && res.id) return res;
+
+    // Пробуем создать через Nuxt API
+    console.log(`[AWG API DETECT] POST /api/peers failed on ${server.name}. Trying POST /api/wireguard/client...`);
+    res = await awgServerRequest<any>(server, '/api/wireguard/client', 'POST', { name: clientEmail });
+    if (res && res.id) return res;
+
+    return null;
   } catch (err: any) {
     console.error(`Failed to add peer in AWG Server ${server.name}:`, err.message);
     return null;
@@ -160,12 +217,18 @@ export async function amneziaAddPeerOnServer(server: AwgServer, clientEmail: str
  */
 export async function amneziaDeletePeerOnServer(server: AwgServer, clientEmail: string): Promise<boolean> {
   try {
-    const peers = await awgServerRequest<any[]>(server, '/api/peers', 'GET');
+    const peers = await fetchPeers(server);
     if (Array.isArray(peers)) {
       const peer = peers.find(p => p.name.toLowerCase().trim() === clientEmail.toLowerCase().trim());
       if (peer) {
-        await awgServerRequest(server, `/api/peers/${peer.id}`, 'DELETE');
-        return true;
+        // Пробуем Express DELETE
+        let res = await awgServerRequest(server, `/api/peers/${peer.id}`, 'DELETE');
+        if (res) return true;
+
+        // Пробуем Nuxt DELETE
+        console.log(`[AWG API DETECT] DELETE /api/peers/${peer.id} failed. Trying DELETE /api/wireguard/client/${peer.id}...`);
+        res = await awgServerRequest(server, `/api/wireguard/client/${peer.id}`, 'DELETE');
+        if (res) return true;
       }
     }
   } catch (err: any) {
@@ -179,13 +242,20 @@ export async function amneziaDeletePeerOnServer(server: AwgServer, clientEmail: 
  */
 export async function amneziaTogglePeerOnServer(server: AwgServer, clientEmail: string, enable: boolean): Promise<boolean> {
   try {
-    const peers = await awgServerRequest<any[]>(server, '/api/peers', 'GET');
+    const peers = await fetchPeers(server);
     if (Array.isArray(peers)) {
       const peer = peers.find(p => p.name.toLowerCase().trim() === clientEmail.toLowerCase().trim());
       if (peer) {
         const action = enable ? 'enable' : 'disable';
-        await awgServerRequest(server, `/api/peers/${peer.id}/${action}`, 'POST');
-        return true;
+
+        // Пробуем Express POST
+        let res = await awgServerRequest(server, `/api/peers/${peer.id}/${action}`, 'POST');
+        if (res) return true;
+
+        // Пробуем Nuxt POST
+        console.log(`[AWG API DETECT] POST /api/peers/${peer.id}/${action} failed. Trying POST /api/wireguard/client/${peer.id}/${action}...`);
+        res = await awgServerRequest(server, `/api/wireguard/client/${peer.id}/${action}`, 'POST');
+        if (res) return true;
       }
     }
   } catch (err: any) {
@@ -269,7 +339,7 @@ export async function amneziaGetClientConfigs(
     await Promise.all(
       assignedServers.map(async (server) => {
         try {
-          const peers = await awgServerRequest<any[]>(server, '/api/peers', 'GET');
+          const peers = await fetchPeers(server);
           if (!Array.isArray(peers)) return;
 
           let peer = peers.find(p => p.name.toLowerCase().trim() === clientEmail.toLowerCase().trim());
@@ -279,19 +349,8 @@ export async function amneziaGetClientConfigs(
           }
           if (!peer) return;
 
-          const baseUrl = server.apiUrl.endsWith('/') ? server.apiUrl.slice(0, -1) : server.apiUrl;
-          const rawUrl = `${baseUrl}/api/peers/${peer.id}/config`;
-          const headers: Record<string, string> = {};
-          
-          const sessionCookie = awgSessionCookies[server.id];
-          if (sessionCookie) {
-            headers['Cookie'] = sessionCookie;
-          }
-
-          const res = await fetch(rawUrl, { headers, cache: 'no-store' });
-          if (!res.ok) return;
-
-          let configText = await res.text();
+          let configText = await fetchPeerConfig(server, peer.id);
+          if (!configText) return;
 
           const lines = configText.split('\n');
           const interfaceIdx = lines.findIndex(line => line.trim().toLowerCase() === '[interface]');
@@ -337,7 +396,7 @@ export async function amneziaGetPeerConfigOnServer(
   clientEmail: string
 ): Promise<string | null> {
   try {
-    const peers = await awgServerRequest<any[]>(server, '/api/peers', 'GET');
+    const peers = await fetchPeers(server);
     if (!Array.isArray(peers)) return null;
 
     let peer = peers.find(p => p.name.toLowerCase().trim() === clientEmail.toLowerCase().trim());
@@ -347,19 +406,8 @@ export async function amneziaGetPeerConfigOnServer(
     }
     if (!peer) return null;
 
-    const baseUrl = server.apiUrl.endsWith('/') ? server.apiUrl.slice(0, -1) : server.apiUrl;
-    const rawUrl = `${baseUrl}/api/peers/${peer.id}/config`;
-    const headers: Record<string, string> = {};
-    
-    const sessionCookie = awgSessionCookies[server.id];
-    if (sessionCookie) {
-      headers['Cookie'] = sessionCookie;
-    }
-
-    const res = await fetch(rawUrl, { headers, cache: 'no-store' });
-    if (!res.ok) return null;
-
-    let configText = await res.text();
+    let configText = await fetchPeerConfig(server, peer.id);
+    if (!configText) return null;
 
     const settings = await prisma.appSetting.findMany();
     const settingsMap = new Map(settings.map(s => [s.key, s.value]));
@@ -408,7 +456,7 @@ export async function amneziaGetPeerDetailsOnServer(
   clientEmail: string
 ): Promise<{ exists: boolean; enabled?: boolean; address?: string; lastHandshakeAt?: string; transferRx?: number; transferTx?: number } | null> {
   try {
-    const peers = await awgServerRequest<any[]>(server, '/api/peers', 'GET');
+    const peers = await fetchPeers(server);
     if (!Array.isArray(peers)) return { exists: false };
 
     const peer = peers.find(p => p.name.toLowerCase().trim() === clientEmail.toLowerCase().trim());

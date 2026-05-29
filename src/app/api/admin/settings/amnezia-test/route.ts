@@ -57,11 +57,25 @@ export async function POST(req: Request) {
         headers['Cookie'] = sessionCookie;
       }
 
-      const peersRes = await fetch(`${cleanUrl}/api/peers`, {
+      // Пробуем Express API
+      let peersRes = await fetch(`${cleanUrl}/api/peers`, {
         method: 'GET',
         headers,
         cache: 'no-store',
       });
+
+      // Если Express 404 или ошибка, пробуем Nuxt API (/api/wireguard/client)
+      if (!peersRes.ok) {
+        console.log(`[AWG TEST DETECT] GET /api/peers failed with status ${peersRes.status}. Trying GET /api/wireguard/client...`);
+        const nuxtRes = await fetch(`${cleanUrl}/api/wireguard/client`, {
+          method: 'GET',
+          headers,
+          cache: 'no-store',
+        });
+        if (nuxtRes.ok) {
+          peersRes = nuxtRes;
+        }
+      }
 
       if (!peersRes.ok) {
         const text = await peersRes.text();
