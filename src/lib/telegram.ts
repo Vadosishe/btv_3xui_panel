@@ -32,8 +32,13 @@ export async function handleTelegramMessage(token: string, message: any) {
   if (!message || !message.chat || !message.text) return;
 
   const chatId = message.chat.id;
-  const text = message.text.trim();
+  let text = message.text.trim();
   const fromName = message.from?.first_name || 'Пользователь';
+
+  // Маппинг кнопок клавиатуры в стандартные команды
+  if (text === '📋 Подать заявку на VPN') text = '/request';
+  if (text === 'ℹ️ Инструкции') text = '/instructions';
+  if (text === '🆘 Техподдержка') text = '/support';
 
   // 1. Команда /start [token]
   if (text.startsWith('/start')) {
@@ -107,8 +112,22 @@ export async function handleTelegramMessage(token: string, message: any) {
           ]
         });
       } else {
-        const helpText = `👋 <b>Добро пожаловать в BTV VPN!</b>\n\nПривет, ${fromName}!\nЭтот бот предназначен для контроля лимитов и быстрого доступа к вашему VPN.\n\n💡 <b>Как привязать подписку:</b>\nПерейдите по вашей персональной ссылке подписки в браузере, найдите раздел Telegram-интеграции и нажмите кнопку привязки аккаунта!`;
-        await sendTelegramMessage(token, chatId, helpText);
+        const helpText = `👋 <b>Добро пожаловать в BTV VPN!</b>\n\n` +
+          `Привет, ${fromName}!\n` +
+          `Этот бот предназначен для получения доступа и удобного контроля вашей подписки BTV.\n\n` +
+          `📋 <b>У вас ещё нет VPN-подписки?</b>\n` +
+          `Вы можете подать заявку на получение VPN прямо сейчас! Нажмите на кнопку меню внизу или используйте команду /request.\n\n` +
+          `🔗 <b>Уже есть подписка?</b>\n` +
+          `Перейдите по вашей персональной ссылке подписки в браузере, найдите раздел привязки Telegram и нажмите кнопку привязки аккаунта!`;
+
+        await sendTelegramMessage(token, chatId, helpText, {
+          keyboard: [
+            [{ text: '📋 Подать заявку на VPN' }],
+            [{ text: 'ℹ️ Инструкции' }, { text: '🆘 Техподдержка' }]
+          ],
+          resize_keyboard: true,
+          one_time_keyboard: false
+        });
       }
     }
     return;
@@ -360,15 +379,19 @@ export async function handleTelegramMessage(token: string, message: any) {
     const args = text.replace('/request', '').trim();
     
     if (!args) {
-      // Без аргументов — показываем инструкцию
-      await sendTelegramMessage(token, chatId, 
-        `📋 <b>Запрос VPN конфигурации</b>\n\n` +
-        `Отправьте команду в формате:\n` +
-        `<code>/request ваш@email.com</code>\n\n` +
-        `Или с описанием:\n` +
-        `<code>/request ваш@email.com Нужен VPN для работы</code>\n\n` +
-        `После отправки заявки администратор рассмотрит её и вы получите уведомление.`
-      );
+      // Без аргументов — показываем красивую инструкцию
+      const requestHelp = `📋 <b>Запрос доступа к VPN BTV</b>\n\n` +
+        `Чтобы подать заявку на подключение к VPN, вам нужно отправить боту сообщение с вашим <b>Email адресом</b>.\n\n` +
+        `✍️ <b>Инструкция как это сделать:</b>\n\n` +
+        `1️⃣ Нажмите на команду ниже, чтобы скопировать её в буфер обмена:\n` +
+        `<code>/request </code>\n\n` +
+        `2️⃣ Вставьте её в поле ввода сообщения.\n\n` +
+        `3️⃣ <b>Допишите через пробел</b> ваш email (и, по желанию, примечание) и отправьте сообщение.\n\n` +
+        `👉 <b>Пример готового сообщения:</b>\n` +
+        `<code>/request ivan@example.com Для работы</code>\n\n` +
+        `<i>После отправки заявка поступит к администраторам, и бот сразу уведомит вас о решении прямо в этом чате!</i>`;
+
+      await sendTelegramMessage(token, chatId, requestHelp);
       return;
     }
 
