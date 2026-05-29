@@ -345,6 +345,70 @@ export async function amneziaSyncClient(
 }
 
 /**
+ * Обработать конфигурационный файл AWG:
+ * 1. Исключить дублирующиеся параметры AWG (Jc, Jmin и т.д.)
+ * 2. Установить актуальные значения параметров AWG из настроек
+ * 3. Гарантировать, что маска в Address всегда равна /32
+ */
+function processAwgConfig(
+  configText: string,
+  jcValues: { jc: string; jmin: string; jmax: string; s1: string; s2: string; h1: string; h2: string; h3: string; h4: string }
+): string {
+  const lines = configText.split('\n');
+  const cleanLines: string[] = [];
+  let interfaceIdx = -1;
+
+  const awgKeys = ['jc', 'jmin', 'jmax', 's1', 's2', 'h1', 'h2', 'h3', 'h4'];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    const lowerLine = line.toLowerCase();
+
+    // 1. Находим начало секции [Interface]
+    if (lowerLine === '[interface]') {
+      interfaceIdx = cleanLines.length;
+      cleanLines.push(lines[i]);
+      continue;
+    }
+
+    // 2. Исключаем существующие строки с параметрами AWG (чтобы избежать дублирования)
+    const isAwgParam = awgKeys.some(key => lowerLine.startsWith(`${key} `) || lowerLine.startsWith(`${key}=`));
+    if (isAwgParam) {
+      continue;
+    }
+
+    // 3. Гарантируем, что Address всегда заканчивается на /32
+    if (lowerLine.startsWith('address')) {
+      const match = lines[i].match(/Address\s*=\s*([^/]+)\/\d+/i);
+      if (match) {
+        cleanLines.push(`Address = ${match[1]}/32`);
+        continue;
+      }
+    }
+
+    cleanLines.push(lines[i]);
+  }
+
+  // 4. Инжектируем актуальные параметры AWG из настроек BTV-панели сразу под [Interface]
+  if (interfaceIdx !== -1) {
+    const awgParams = [
+      `Jc = ${jcValues.jc}`,
+      `Jmin = ${jcValues.jmin}`,
+      `Jmax = ${jcValues.jmax}`,
+      `S1 = ${jcValues.s1}`,
+      `S2 = ${jcValues.s2}`,
+      `H1 = ${jcValues.h1}`,
+      `H2 = ${jcValues.h2}`,
+      `H3 = ${jcValues.h3}`,
+      `H4 = ${jcValues.h4}`
+    ];
+    cleanLines.splice(interfaceIdx + 1, 0, ...awgParams);
+  }
+
+  return cleanLines.join('\n');
+}
+
+/**
  * Сгенерировать и получить конфиги AWG для всех серверов, привязанных к шаблону клиента
  */
 export async function amneziaGetClientConfigs(
@@ -389,24 +453,7 @@ export async function amneziaGetClientConfigs(
           let configText = await fetchPeerConfig(server, peer.id);
           if (!configText) return;
 
-          const lines = configText.split('\n');
-          const interfaceIdx = lines.findIndex(line => line.trim().toLowerCase() === '[interface]');
-          
-          if (interfaceIdx !== -1) {
-            const awgParams = [
-              `Jc = ${jc}`,
-              `Jmin = ${jmin}`,
-              `Jmax = ${jmax}`,
-              `S1 = ${s1}`,
-              `S2 = ${s2}`,
-              `H1 = ${h1}`,
-              `H2 = ${h2}`,
-              `H3 = ${h3}`,
-              `H4 = ${h4}`
-            ];
-            lines.splice(interfaceIdx + 1, 0, ...awgParams);
-            configText = lines.join('\n');
-          }
+          configText = processAwgConfig(configText, { jc, jmin, jmax, s1, s2, h1, h2, h3, h4 });
 
           configsList.push({
             serverId: server.id,
@@ -459,24 +506,7 @@ export async function amneziaGetPeerConfigOnServer(
     const h3 = settingsMap.get('awg_h3') || '3';
     const h4 = settingsMap.get('awg_h4') || '4';
 
-    const lines = configText.split('\n');
-    const interfaceIdx = lines.findIndex(line => line.trim().toLowerCase() === '[interface]');
-    
-    if (interfaceIdx !== -1) {
-      const awgParams = [
-        `Jc = ${jc}`,
-        `Jmin = ${jmin}`,
-        `Jmax = ${jmax}`,
-        `S1 = ${s1}`,
-        `S2 = ${s2}`,
-        `H1 = ${h1}`,
-        `H2 = ${h2}`,
-        `H3 = ${h3}`,
-        `H4 = ${h4}`
-      ];
-      lines.splice(interfaceIdx + 1, 0, ...awgParams);
-      configText = lines.join('\n');
-    }
+    configText = processAwgConfig(configText, { jc, jmin, jmax, s1, s2, h1, h2, h3, h4 });
 
     return configText;
   } catch (err: any) {
