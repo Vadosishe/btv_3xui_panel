@@ -224,6 +224,7 @@ export async function handleTelegramMessage(token: string, message: any) {
       `📊 /status — Проверить баланс трафика, статус и срок действия подписки.\n` +
       `🔑 /config — Получить персональные ключи (VLESS/Trojan) и QR-код для ручного импорта.\n` +
       `📱 /instructions — Пошаговая инструкция по настройке VPN на iOS, Android, Windows, macOS.\n` +
+      `📋 /request — Подать заявку на VPN конфигурацию.\n` +
       `❌ /unbind — Отвязать этот аккаунт Telegram от VPN-подписки.\n` +
       `🆘 /support — Связаться с нашей службой технической поддержки.`;
     await sendTelegramMessage(token, chatId, helpMsg);
@@ -354,7 +355,81 @@ export async function handleTelegramMessage(token: string, message: any) {
     return;
   }
 
+  // Команда /request — Подача заявки на VPN конфигурацию
+  if (text === '/request' || text.startsWith('/request ')) {
+    const args = text.replace('/request', '').trim();
+    
+    if (!args) {
+      // Без аргументов — показываем инструкцию
+      await sendTelegramMessage(token, chatId, 
+        `📋 <b>Запрос VPN конфигурации</b>\n\n` +
+        `Отправьте команду в формате:\n` +
+        `<code>/request ваш@email.com</code>\n\n` +
+        `Или с описанием:\n` +
+        `<code>/request ваш@email.com Нужен VPN для работы</code>\n\n` +
+        `После отправки заявки администратор рассмотрит её и вы получите уведомление.`
+      );
+      return;
+    }
+
+    // Парсим email и описание
+    const parts = args.split(/\s+/);
+    const email = parts[0];
+    const description = parts.slice(1).join(' ');
+
+    // Простая валидация email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      await sendTelegramMessage(token, chatId,
+        `❌ <b>Некорректный email</b>\n\n` +
+        `Пожалуйста, укажите корректный email адрес.\n` +
+        `Пример: <code>/request user@example.com</code>`
+      );
+      return;
+    }
+
+    // Проверяем дубликат
+    const existingRequest = await prisma.vpnRequest.findFirst({
+      where: { email: email.toLowerCase().trim(), status: 'PENDING' },
+    });
+
+    if (existingRequest) {
+      await sendTelegramMessage(token, chatId,
+        `⚠️ <b>Заявка уже существует</b>\n\n` +
+        `На email <b>${email}</b> уже подана заявка, которая находится на рассмотрении.`
+      );
+      return;
+    }
+
+    // Создаём заявку
+    try {
+      await prisma.vpnRequest.create({
+        data: {
+          email: email.toLowerCase().trim(),
+          telegram: message.from?.username ? `@${message.from.username}` : '',
+          telegramChatId: String(chatId),
+          name: [message.from?.first_name, message.from?.last_name].filter(Boolean).join(' ') || '',
+          description: description || '',
+          source: 'TELEGRAM',
+        },
+      });
+
+      await sendTelegramMessage(token, chatId,
+        `✅ <b>Заявка отправлена!</b>\n\n` +
+        `Email: <b>${email}</b>\n` +
+        (description ? `Описание: ${description}\n` : '') +
+        `\nАдминистратор рассмотрит вашу заявку и вы получите уведомление в этот чат.`
+      );
+    } catch (err: any) {
+      console.error('Error creating VPN request from Telegram:', err);
+      await sendTelegramMessage(token, chatId,
+        `❌ Произошла ошибка при отправке заявки. Попробуйте позже.`
+      );
+    }
+    return;
+  }
+
   // 7. Неподдерживаемые сообщения
-  const unknownText = `🤔 <b>Неизвестная команда</b>\n\nДоступные команды:\n👉 /status — проверить остаток трафика и состояние VPN.\n👉 /config — получить VPN ключи и ссылку подписки.\n👉 /instructions — инструкции по настройке.\n👉 /support — написать в техподдержку.`;
+  const unknownText = `🤔 <b>Неизвестная команда</b>\n\nДоступные команды:\n👉 /status — проверить остаток трафика и состояние VPN.\n👉 /config — получить VPN ключи и ссылку подписки.\n👉 /instructions — инструкции по настройке.\n👉 /request — подать заявку на VPN конфигурацию.\n👉 /support — написать в техподдержку.`;
   await sendTelegramMessage(token, chatId, unknownText);
 }

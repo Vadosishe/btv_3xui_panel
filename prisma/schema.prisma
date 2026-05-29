@@ -94,3 +94,27 @@ model AppSetting {
   key   String @id
   value String
 }
+
+// Заявки на VPN конфигурацию (из веб-формы или Telegram-бота)
+model VpnRequest {
+  id             String   @id @default(uuid())
+
+  // Контактные данные заявителя
+  email          String              // Email заявителя (обязательно)
+  telegram       String?  @default("") // @username в Telegram
+  telegramChatId String?  @default("") // Chat ID если заявка из бота
+  name           String?  @default("") // Имя заявителя
+  description    String?  @default("") // Описание / причина запроса
+
+  // Статус обработки
+  status         String   @default("PENDING") // PENDING | APPROVED | DENIED
+  adminNote      String?  @default("") // Комментарий админа
+
+  // Связь с созданным клиентом (после одобрения)
+  clientId       String?  // ID созданного Client
+
+  // Источник и мета
+  source         String   @default("WEB") // WEB | TELEGRAM
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}

@@ -11,6 +11,8 @@ const PUBLIC_PATHS = [
   '/login',
   '/api/auth/login',
   '/favicon.ico',
+  '/request',       // Публичная форма запроса VPN
+  '/api/request',   // API для отправки заявки
 ];
 
 export async function middleware(req: NextRequest) {

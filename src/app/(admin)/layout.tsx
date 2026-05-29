@@ -16,6 +16,7 @@ import {
   History,
   Sun,
   Moon,
+  Inbox,
 } from 'lucide-react';
 
 interface AdminInfo {
@@ -40,6 +41,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { name: 'Компании', path: '/companies', icon: Building2 },
     { name: 'Шаблоны', path: '/templates', icon: Sliders },
     { name: 'Клиенты', path: '/clients', icon: Users },
+    { name: 'Заявки', path: '/requests', icon: Inbox },
     { name: 'Логи аудита', path: '/audit', icon: History },
     { name: 'Настройки', path: '/settings', icon: SettingsIcon },
   ];
