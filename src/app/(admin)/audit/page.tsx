@@ -9,6 +9,7 @@ import {
   User,
   Clock,
   Loader,
+  Trash2,
 } from 'lucide-react';
 
 interface AuditLog {
@@ -25,6 +26,49 @@ export default function AuditLogsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterAction, setFilterAction] = useState('');
+  const [isClearing, setIsClearing] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 2500);
+  };
+
+  const handleClearLogs = async () => {
+    const option = confirm(
+      "Выберите действие:\n\n" +
+      "ОК - Удалить логи старше 30 дней\n" +
+      "Отмена - Отмена очистки\n\n" +
+      "Хотите очистить ВСЕ логи полностью? Нажмите 'ОК' и в следующем окне выберите соответствующий вариант."
+    );
+    
+    if (!option) return;
+    
+    const clearAll = confirm("Удалить ВСЕ логи без остатка?\n\nОК - Да, очистить всё\nОтмена - Удалить только старые (старше 30 дней)");
+    
+    setIsClearing(true);
+    try {
+      const url = clearAll ? '/api/admin/logs' : '/api/admin/logs?days=30';
+      const res = await fetch(url, { method: 'DELETE' });
+      const data = await res.json();
+      
+      if (res.ok && data.success) {
+        showToast(clearAll ? "Все логи успешно очищены!" : "Старые логи успешно очищены!");
+        // Перезагружаем логи
+        const reloadRes = await fetch('/api/admin/logs');
+        if (reloadRes.ok) {
+          const reloadData = await reloadRes.json();
+          setLogs(reloadData.logs || []);
+        }
+      } else {
+        showToast(data.error || "Не удалось очистить логи", "error");
+      }
+    } catch (err) {
+      showToast("Ошибка соединения с сервером", "error");
+    } finally {
+      setIsClearing(false);
+    }
+  };
 
   useEffect(() => {
     async function loadLogs() {
@@ -307,6 +351,13 @@ export default function AuditLogsPage() {
             ))}
           </select>
         </div>
+
+        <div className="filters-right">
+          <button className="btn-clear-logs" onClick={handleClearLogs} disabled={isClearing || logs.length === 0}>
+            {isClearing ? <Loader size={14} className="spinner" /> : <Trash2 size={14} />}
+            <span>Очистить логи</span>
+          </button>
+        </div>
       </div>
 
       {/* Таблица логов */}
@@ -379,6 +430,71 @@ export default function AuditLogsPage() {
         )}
       </div>
 
+      {/* Красивое всплывающее уведомление (Toast) */}
+      {toast && (
+        <div className={`toast-notification ${toast.type}`}>
+          {toast.message}
+        </div>
+      )}
+
+      <style jsx>{`
+        .filters-right {
+          display: flex;
+          align-items: center;
+        }
+
+        .btn-clear-logs {
+          background: rgba(239, 68, 68, 0.08);
+          border: 1px solid rgba(239, 68, 68, 0.15);
+          color: #f87171;
+          padding: 10px 15px;
+          border-radius: 10px;
+          font-size: 13px;
+          font-weight: 600;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          transition: all 0.2s;
+        }
+
+        .btn-clear-logs:hover:not(:disabled) {
+          background: rgba(239, 68, 68, 0.15);
+          border-color: rgba(239, 68, 68, 0.25);
+          transform: translateY(-1px);
+        }
+
+        .btn-clear-logs:disabled {
+          opacity: 0.4;
+          cursor: not-allowed;
+        }
+
+        /* Toast notifications */
+        .toast-notification {
+          position: fixed;
+          bottom: 24px;
+          right: 24px;
+          background: #10b981;
+          color: #fff;
+          padding: 12px 24px;
+          border-radius: 10px;
+          font-size: 13px;
+          font-weight: 700;
+          box-shadow: 0 10px 25px rgba(16, 185, 129, 0.2);
+          z-index: 110;
+          animation: slideInToast 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .toast-notification.error {
+          background: #ef4444;
+          box-shadow: 0 10px 25px rgba(239, 68, 68, 0.2);
+        }
+
+        @keyframes slideInToast {
+          from { transform: translateY(50px); opacity: 0; }
+          to { transform: translateY(0); opacity: 1; }
+        }
+      `}</style>
     </div>
   );
 }
