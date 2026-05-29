@@ -131,12 +131,16 @@ export async function POST(req: Request) {
 
       // 3. Backup Amnezia VPN config (.vpn / .conf)
       try {
-        const { amneziaGetPeerConfig } = await import('@/lib/amnezia');
-        const realAwgConfig = await amneziaGetPeerConfig(client.email);
-        if (realAwgConfig) {
-          zip.file(`${folderPath}/btv-amnezia-config.conf`, realAwgConfig);
+        const { amneziaGetClientConfigs } = await import('@/lib/amnezia');
+        const realConfigs = await amneziaGetClientConfigs(client.email, client.templateId);
+        
+        if (realConfigs && realConfigs.length > 0) {
+          for (const item of realConfigs) {
+            const cleanServerName = item.serverName.replace(/[\\/:*?"<>|]/g, '_').replace(/\s+/g, '_');
+            zip.file(`${folderPath}/btv-amnezia-${cleanServerName}.conf`, item.config);
+          }
         } else {
-          // Fallback to mock .vpn if integration is disabled or no peer found
+          // Fallback to mock .vpn if integration has no servers assigned or none are available
           const amneziaNodeDomain = nodeDomains['0'] || defaultDomain;
           const amneziaConfig = generateAmneziaMockConfig(client, amneziaNodeDomain);
           zip.file(`${folderPath}/btv-amnezia-config.vpn`, amneziaConfig);

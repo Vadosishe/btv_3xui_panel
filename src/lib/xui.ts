@@ -142,6 +142,7 @@ export async function xuiAddClient(
     enable?: boolean;
     flow?: string;
     tgId?: string;
+    templateId?: string;
   }
 ): Promise<boolean> {
   // Определение корректного flow на основе настроек инбаунда
@@ -196,11 +197,11 @@ export async function xuiAddClient(
 
   const data = await xuiRequest('/panel/api/clients/add', 'POST', body);
 
-  if (data.success) {
-    // Дублируем добавление клиента в Amnezia WireGuard
+  if (data.success && client.templateId) {
+    // Дублируем добавление клиента во все привязанные серверы Amnezia WG
     try {
-      const { amneziaAddPeer } = await import('./amnezia');
-      await amneziaAddPeer(client.email);
+      const { amneziaSyncClient } = await import('./amnezia');
+      await amneziaSyncClient(client.email, client.templateId, 'add');
     } catch (awgErr: any) {
       console.error('Failed to register client in Amnezia WG during xuiAddClient:', awgErr.message);
     }
@@ -247,10 +248,16 @@ export async function xuiDeleteClient(inboundId: number, clientUuid: string): Pr
   const data = await xuiRequest(`/panel/api/clients/del/${email}`, 'POST');
 
   if (data.success) {
-    // Удаляем клиента из Amnezia WireGuard
+    // Удаляем клиента из всех привязанных серверов Amnezia WG
     try {
-      const { amneziaDeletePeer } = await import('./amnezia');
-      await amneziaDeletePeer(email);
+      const { amneziaSyncClient, getAwgServers, amneziaDeletePeerOnServer } = await import('./amnezia');
+      const dbClient = await prisma.client.findUnique({ where: { email } });
+      if (dbClient && dbClient.templateId) {
+        await amneziaSyncClient(email, dbClient.templateId, 'delete');
+      } else {
+        const servers = await getAwgServers();
+        await Promise.all(servers.map(s => amneziaDeletePeerOnServer(s, email)));
+      }
     } catch (awgErr: any) {
       console.error('Failed to delete peer in Amnezia WG during xuiDeleteClient:', awgErr.message);
     }
@@ -274,6 +281,7 @@ export async function xuiUpdateClient(
     enable?: boolean;
     flow?: string;
     tgId?: string;
+    templateId?: string;
   }
 ): Promise<boolean> {
   // Определение корректного flow на основе настроек инбаунда
@@ -328,10 +336,17 @@ export async function xuiUpdateClient(
   const data = await xuiRequest(`/panel/api/clients/update/${client.email}`, 'POST', body);
 
   if (data.success) {
-    // Синхронизируем статус клиента (вкл/выкл) в Amnezia WireGuard
+    // Синхронизируем статус клиента (вкл/выкл) во всех привязанных серверах Amnezia WG
     try {
-      const { amneziaTogglePeer } = await import('./amnezia');
-      await amneziaTogglePeer(client.email, client.enable ?? true);
+      const { amneziaSyncClient } = await import('./amnezia');
+      let finalTemplateId = client.templateId;
+      if (!finalTemplateId) {
+        const dbClient = await prisma.client.findUnique({ where: { email: client.email } });
+        if (dbClient) finalTemplateId = dbClient.templateId;
+      }
+      if (finalTemplateId) {
+        await amneziaSyncClient(client.email, finalTemplateId, client.enable ?? true ? 'enable' : 'disable');
+      }
     } catch (awgErr: any) {
       console.error('Failed to toggle peer in Amnezia WG during xuiUpdateClient:', awgErr.message);
     }

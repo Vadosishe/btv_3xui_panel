@@ -36,6 +36,7 @@ export async function GET() {
       awg_enabled: settingsMap.awg_enabled || 'false',
       awg_api_url: settingsMap.awg_api_url || 'http://localhost:51821',
       awg_api_password: settingsMap.awg_api_password || '',
+      awg_servers: settingsMap.awg_servers || '[]',
       awg_jc: settingsMap.awg_jc || '4',
       awg_jmin: settingsMap.awg_jmin || '40',
       awg_jmax: settingsMap.awg_jmax || '70',

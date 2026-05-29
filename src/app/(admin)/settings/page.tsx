@@ -46,6 +46,10 @@ export default function SettingsPage() {
   const [awgEnabled, setAwgEnabled] = useState(false);
   const [awgApiUrl, setAwgApiUrl] = useState('http://localhost:51821');
   const [awgApiPassword, setAwgApiPassword] = useState('');
+  const [awgServers, setAwgServers] = useState<any[]>([]);
+  const [newAwgName, setNewAwgName] = useState('');
+  const [newAwgUrl, setNewAwgUrl] = useState('');
+  const [newAwgPassword, setNewAwgPassword] = useState('');
   const [awgJc, setAwgJc] = useState('4');
   const [awgJmin, setAwgJmin] = useState('40');
   const [awgJmax, setAwgJmax] = useState('70');
@@ -122,6 +126,11 @@ export default function SettingsPage() {
           setAwgEnabled(s.awg_enabled === 'true');
           setAwgApiUrl(s.awg_api_url || 'http://localhost:51821');
           setAwgApiPassword(s.awg_api_password || '');
+          try {
+            setAwgServers(JSON.parse(s.awg_servers || '[]'));
+          } catch (e) {
+            setAwgServers([]);
+          }
           setAwgJc(s.awg_jc || '4');
           setAwgJmin(s.awg_jmin || '40');
           setAwgJmax(s.awg_jmax || '70');
@@ -181,6 +190,7 @@ export default function SettingsPage() {
       awg_enabled: awgEnabled ? 'true' : 'false',
       awg_api_url: awgApiUrl.trim(),
       awg_api_password: awgApiPassword.trim(),
+      awg_servers: JSON.stringify(awgServers),
       awg_jc: awgJc.trim(),
       awg_jmin: awgJmin.trim(),
       awg_jmax: awgJmax.trim(),
@@ -313,6 +323,34 @@ export default function SettingsPage() {
   // Скачать резервную копию базы
   const handleDownloadBackup = () => {
     window.open('/api/admin/backup', '_blank');
+  };
+
+  // Управление списком серверов Amnezia
+  const handleAddAwgServer = () => {
+    if (!newAwgName.trim() || !newAwgUrl.trim() || !newAwgPassword.trim()) {
+      alert('Пожалуйста, заполните все три поля для нового сервера');
+      return;
+    }
+    const newServer = {
+      id: 'awg-' + Math.random().toString(36).substring(2, 9),
+      name: newAwgName.trim(),
+      apiUrl: newAwgUrl.trim(),
+      apiPassword: newAwgPassword.trim(),
+      enabled: true
+    };
+    setAwgServers([...awgServers, newServer]);
+    setNewAwgName('');
+    setNewAwgUrl('');
+    setNewAwgPassword('');
+  };
+
+  const handleDeleteAwgServer = (id: string) => {
+    if (!confirm('Вы действительно хотите удалить этот сервер Amnezia?')) return;
+    setAwgServers(awgServers.filter((s: any) => s.id !== id));
+  };
+
+  const handleToggleAwgServer = (id: string) => {
+    setAwgServers(awgServers.map((s: any) => s.id === id ? { ...s, enabled: !s.enabled } : s));
   };
 
   if (isLoading) {
@@ -846,15 +884,15 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        {/* --- СЕКЦИЯ 4.5: ИНТЕГРАЦИЯ AMNEZIA WG (AWG 2.0) --- */}
+        {/* --- СЕКЦИЯ 4.5: ИНТЕГРАЦИЯ AMNEZIA WG (AWG 1.0) --- */}
         <div className="settings-section glass-panel">
           <div className="section-header">
             <Server size={18} className="section-icon" style={{ color: '#a855f7' }} />
-            <span>Интеграция Amnezia WireGuard (AWG 2.0)</span>
+            <span>Интеграция Amnezia WireGuard (AWG)</span>
           </div>
 
           <span className="help-text" style={{ marginTop: '-10px' }}>
-            Подключите панель к вашему контейнеру <strong>amnezia-wg-easy</strong> для автоматического создания и управления резервными WireGuard-подключениями с защитой от DPI блокировок.
+            Подключите ваши существующие панели <strong>amnezia-wg-easy / awg-easy</strong> для выдачи автоматических обфусцированных резервных подключений на нужных нодах.
           </span>
 
           <div className="form-group" style={{ flexDirection: 'row', alignItems: 'center', gap: '10px', background: 'rgba(168, 85, 247, 0.05)', padding: '12px 15px', borderRadius: '10px', border: '1px solid rgba(168, 85, 247, 0.15)' }}>
@@ -866,47 +904,147 @@ export default function SettingsPage() {
               style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#a855f7' }}
             />
             <label htmlFor="awgEnabled" style={{ fontSize: '13px', fontWeight: 600, color: '#e9d5ff', cursor: 'pointer' }}>
-              Включить резервный канал Amnezia WireGuard (AWG 2.0)
+              Включить резервный канал Amnezia WireGuard (AWG 1.0)
             </label>
           </div>
 
           {awgEnabled && (
             <>
-              <div className="form-grid">
-                <div className="form-group">
-                  <label className="form-label">API URL amnezia-wg-easy</label>
-                  <input
-                    type="url"
-                    className="form-input"
-                    placeholder="http://localhost:51821"
-                    value={awgApiUrl}
-                    onChange={(e) => setAwgApiUrl(e.target.value)}
-                    required={awgEnabled}
-                  />
-                  <span className="help-text">
-                    Адрес панели управления amnezia-wg-easy (с портом, обычно 51821).
-                  </span>
-                </div>
+              {/* Список текущих серверов Amnezia */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '10px' }}>
+                <label className="form-label" style={{ color: '#fff', fontSize: '12px', fontWeight: 700 }}>
+                  Подключенные серверы Amnezia
+                </label>
 
-                <div className="form-group">
-                  <label className="form-label">Пароль от API amnezia-wg-easy</label>
-                  <input
-                    type="password"
-                    className="form-input"
-                    placeholder="Ваш секретный пароль администратора"
-                    value={awgApiPassword}
-                    onChange={(e) => setAwgApiPassword(e.target.value)}
-                    required={awgEnabled}
-                  />
-                  <span className="help-text">
-                    Пароль, используемый для входа в панель wg-easy.
-                  </span>
-                </div>
+                {awgServers.length > 0 ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {awgServers.map((server: any) => (
+                      <div 
+                        key={server.id} 
+                        style={{ 
+                          display: 'flex', 
+                          justifyContent: 'space-between', 
+                          alignItems: 'center', 
+                          background: 'rgba(0,0,0,0.2)', 
+                          padding: '12px 16px', 
+                          borderRadius: '10px', 
+                          border: '1px solid rgba(255,255,255,0.04)' 
+                        }}
+                      >
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          <span style={{ fontSize: '14px', fontWeight: 600, color: '#fff' }}>
+                            {server.name} {!server.enabled && <span style={{ color: '#ef4444', fontSize: '11px' }}>(Отключен)</span>}
+                          </span>
+                          <span style={{ fontSize: '12px', color: '#9ca3af' }}>{server.apiUrl}</span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                          <button
+                            type="button"
+                            onClick={() => handleToggleAwgServer(server.id)}
+                            style={{
+                              background: server.enabled ? 'rgba(16, 185, 129, 0.1)' : 'rgba(255, 255, 255, 0.05)',
+                              border: '1px solid',
+                              borderColor: server.enabled ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255, 255, 255, 0.1)',
+                              color: server.enabled ? '#34d399' : '#9ca3af',
+                              cursor: 'pointer',
+                              padding: '6px 12px',
+                              borderRadius: '6px',
+                              fontSize: '11px',
+                              fontWeight: 600
+                            }}
+                          >
+                            {server.enabled ? 'Активен' : 'Выключен'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteAwgServer(server.id)}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              color: '#ef4444',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                            }}
+                            title="Удалить сервер"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div style={{ padding: '20px', textAlign: 'center', background: 'rgba(0,0,0,0.15)', borderRadius: '10px', color: '#6b7280', fontSize: '13px' }}>
+                    Серверы Amnezia пока не добавлены. Добавьте первый сервер ниже!
+                  </div>
+                )}
               </div>
 
+              {/* Форма добавления нового сервера Amnezia */}
               <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '20px', marginTop: '10px' }}>
+                <label className="form-label" style={{ color: '#fff', fontSize: '12px', fontWeight: 700, marginBottom: '12px', display: 'block' }}>
+                  Подключить новый сервер Amnezia WG-Easy
+                </label>
+
+                <div className="form-grid">
+                  <div className="form-group">
+                    <label className="form-label">Название сервера</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      placeholder="Например: Резерв Нидерланды"
+                      value={newAwgName}
+                      onChange={(e) => setNewAwgName(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">API URL панели</label>
+                    <input
+                      type="url"
+                      className="form-input"
+                      placeholder="http://95.217.xx.xx:51821"
+                      value={newAwgUrl}
+                      onChange={(e) => setNewAwgUrl(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Пароль от API</label>
+                    <input
+                      type="password"
+                      className="form-input"
+                      placeholder="Пароль администратора"
+                      value={newAwgPassword}
+                      onChange={(e) => setNewAwgPassword(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  className="btn-backup"
+                  onClick={handleAddAwgServer}
+                  style={{ 
+                    fontSize: '12px', 
+                    padding: '8px 15px', 
+                    alignSelf: 'flex-start', 
+                    marginTop: '15px',
+                    background: 'rgba(168, 85, 247, 0.05)',
+                    borderColor: 'rgba(168, 85, 247, 0.15)',
+                    color: '#c084fc'
+                  }}
+                >
+                  <Plus size={14} />
+                  <span>Добавить этот сервер Amnezia</span>
+                </button>
+              </div>
+
+              {/* Общие обфускационные параметры AWG */}
+              <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '20px', marginTop: '20px' }}>
                 <label className="form-label" style={{ marginBottom: '12px', display: 'block', color: '#fff', fontSize: '12px', fontWeight: 700 }}>
-                  Параметры обфускации AWG 2.0 (Защита от DPI / ТСПУ РФ)
+                  Параметры обфускации AWG (Защита от DPI / ТСПУ РФ)
                 </label>
                 
                 <div className="form-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)', gap: '15px' }}>

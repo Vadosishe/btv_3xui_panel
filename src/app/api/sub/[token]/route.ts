@@ -90,7 +90,7 @@ export async function GET(
 
     const isActive = client && isClientActive && isCompanyActive && !isExpired;
 
-    // --- СЦЕНАРИЙ 3: Запрос конфигурации AmneziaVPN (Реальный AWG 2.0 / Резервный плейсхолдер) ---
+    // --- СЦЕНАРИЙ 3: Запрос конфигурации AmneziaVPN (Реальный AWG / Резервный плейсхолдер) ---
     if (format === 'amnezia') {
       if (!client) {
         return new NextResponse(JSON.stringify({ error: 'Подписка не найдена' }), {
@@ -105,16 +105,28 @@ export async function GET(
         });
       }
 
-      // Пробуем получить реальный конфиг Amnezia WireGuard (AWG 2.0) через интеграционный модуль
+      const serverId = searchParams.get('server') || undefined;
+
+      // Пробуем получить реальный конфиг Amnezia WireGuard (AWG 1.0) через интеграционный модуль
       try {
-        const { amneziaGetPeerConfig } = await import('@/lib/amnezia');
-        const realAwgConfig = await amneziaGetPeerConfig(client.email);
+        const { amneziaGetPeerConfig, getAwgServers } = await import('@/lib/amnezia');
+        const realAwgConfig = await amneziaGetPeerConfig(client.email, serverId);
         
         if (realAwgConfig) {
+          let filename = `btv-awg-${client.vpnUuid.substring(0, 8)}.conf`;
+          try {
+            const servers = await getAwgServers();
+            const srv = servers.find(s => s.id === serverId);
+            if (srv) {
+              const cleanSrvName = encodeURIComponent(srv.name.replace(/\s+/g, '_'));
+              filename = `btv-awg-${cleanSrvName}-${client.vpnUuid.substring(0, 8)}.conf`;
+            }
+          } catch (e) {}
+
           return new NextResponse(realAwgConfig, {
             headers: {
               'Content-Type': 'text/plain; charset=utf-8',
-              'Content-Disposition': `attachment; filename="btv-awg-${client.vpnUuid.substring(0, 8)}.conf"`,
+              'Content-Disposition': `attachment; filename="${filename}"`,
               'Cache-Control': 'no-store',
             },
           });
@@ -209,7 +221,19 @@ export async function GET(
       console.log(`[SUB API BENCHMARK] Generate QR code: ${t9 - t8}ms`);
       console.log(`[SUB API BENCHMARK] TOTAL TIME BROWSER SUB API: ${Date.now() - startTime}ms`);
 
-      return new NextResponse(renderSubscriptionPortal(client, usedGBText, limitGBText, progressPercent, configLinks, supportLink, tgBotUsername, qrCodeDataUrl), {
+      // Получаем назначенные Amnezia-серверы для шаблона клиента
+      let clientAwgServers: any[] = [];
+      try {
+        const { getAwgServers, getTemplateAwgServers } = await import('@/lib/amnezia');
+        const allAwgServers = await getAwgServers();
+        const templateMap = await getTemplateAwgServers();
+        const assignedServerIds = templateMap[client.templateId] || [];
+        clientAwgServers = allAwgServers.filter(s => s.enabled && assignedServerIds.includes(s.id));
+      } catch (e) {
+        console.error('Failed to fetch assigned AWG servers for browser sub:', e);
+      }
+
+      return new NextResponse(renderSubscriptionPortal(client, usedGBText, limitGBText, progressPercent, configLinks, supportLink, tgBotUsername, qrCodeDataUrl, clientAwgServers), {
         headers: { 'Content-Type': 'text/html; charset=utf-8' },
       });
     }
@@ -373,7 +397,8 @@ function renderSubscriptionPortal(
   configLinks: string[],
   supportLink: string,
   tgBotUsername: string,
-  qrCodeDataUrl: string
+  qrCodeDataUrl: string,
+  clientAwgServers: any[] = []
 ): string {
   const configsJson = JSON.stringify(configLinks);
   const expirationText = client.expiresAt 
@@ -704,21 +729,43 @@ function renderSubscriptionPortal(
             `}
           </div>
 
-          <!-- Секция AmneziaVPN (Архитектурный плейсхолдер) -->
-          <div class="configs-section" style="border-top: 1px solid rgba(255,255,255,0.06); margin-top: 20px; padding-top: 20px;">
-            <div style="font-size: 11px; color: #9ca3af; margin-bottom: 12px; text-align: center; display: flex; align-items: center; justify-content: center; gap: 6px;">
-              <span>🛡️ Резервный канал AmneziaVPN</span>
+          <!-- Секция AmneziaWG (Ультрастойкий протокол) -->
+          ${clientAwgServers.length > 0 ? `
+            <div class="configs-section" style="border-top: 1px solid rgba(255,255,255,0.06); margin-top: 20px; padding-top: 20px;">
+              <div style="font-size: 11px; color: #9ca3af; margin-bottom: 12px; text-align: center; display: flex; align-items: center; justify-content: center; gap: 6px;">
+                <span>🛡️ Ультрастойкий протокол Amnezia WG (AWG)</span>
+              </div>
+              <div style="background: rgba(168, 85, 247, 0.05); border: 1px solid rgba(168, 85, 247, 0.15); padding: 15px; border-radius: 12px; text-align: left; font-size: 12px; color: #d8b4fe; line-height: 1.5; margin-bottom: 12px;">
+                <strong style="color: #fff; display: block; margin-bottom: 4px;">Как подключиться:</strong>
+                1. Установите официальное приложение <strong>AmneziaVPN</strong>.<br/>
+                2. Скачайте файл конфигурации WireGuard (.conf) для нужной локации ниже.<br/>
+                3. Добавьте подключение через «Импорт файла настроек» в приложении.
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 10px;">
+                ${clientAwgServers.map(server => `
+                  <button class="btn-tg" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; border-color: rgba(168, 85, 247, 0.4); color: #e9d5ff; background: rgba(168, 85, 247, 0.12); cursor: pointer; text-decoration: none;" onclick="downloadAmneziaConfig('${server.id}')">
+                    <span>📥</span>
+                    <span>Скачать конфиг: <b>${server.name}</b> (.conf)</span>
+                  </button>
+                `).join('')}
+              </div>
             </div>
-            <div style="background: rgba(168, 85, 247, 0.05); border: 1px solid rgba(168, 85, 247, 0.15); padding: 15px; border-radius: 12px; text-align: left; font-size: 12px; color: #d8b4fe; line-height: 1.5; margin-bottom: 12px;">
-              <strong style="color: #fff; display: block; margin-bottom: 4px;">Как подключиться:</strong>
-              1. Скачайте файл конфигурации по кнопке ниже.<br/>
-              2. Установите официальный клиент <strong>AmneziaVPN</strong>.<br/>
-              3. Выберите «Импортировать резервную копию или файл настройки» и откройте скачанный <strong>.vpn</strong> файл.
+          ` : `
+            <div class="configs-section" style="border-top: 1px solid rgba(255,255,255,0.06); margin-top: 20px; padding-top: 20px;">
+              <div style="font-size: 11px; color: #9ca3af; margin-bottom: 12px; text-align: center; display: flex; align-items: center; justify-content: center; gap: 6px;">
+                <span>🛡️ Резервный канал AmneziaVPN</span>
+              </div>
+              <div style="background: rgba(168, 85, 247, 0.05); border: 1px solid rgba(168, 85, 247, 0.15); padding: 15px; border-radius: 12px; text-align: left; font-size: 12px; color: #d8b4fe; line-height: 1.5; margin-bottom: 12px;">
+                <strong style="color: #fff; display: block; margin-bottom: 4px;">Как подключиться:</strong>
+                1. Скачайте файл конфигурации по кнопке ниже.<br/>
+                2. Установите официальный клиент <strong>AmneziaVPN</strong>.<br/>
+                3. Выберите «Импортировать резервную копию или файл настройки» и откройте скачанный <strong>.vpn</strong> файл.
+              </div>
+              <button class="btn-tg" style="width: 100%; display: block; border-color: rgba(168, 85, 247, 0.4); color: #e9d5ff; background: rgba(168, 85, 247, 0.12); cursor: pointer;" onclick="downloadAmneziaConfig()">
+                📥 Скачать конфиг AmneziaVPN (.vpn)
+              </button>
             </div>
-            <button class="btn-tg" style="width: 100%; display: block; border-color: rgba(168, 85, 247, 0.4); color: #e9d5ff; background: rgba(168, 85, 247, 0.12); cursor: pointer;" onclick="downloadAmneziaConfig()">
-              📥 Скачать конфиг AmneziaVPN (.vpn)
-            </button>
-          </div>
+          `}
 
           ${configLinks.length > 0 ? `
             <div class="configs-section">
@@ -803,8 +850,9 @@ function renderSubscriptionPortal(
           copyToClipboard(configLinks[idx], 'VPN ключ скопирован!');
         }
 
-        function downloadAmneziaConfig() {
-          window.location.href = window.location.pathname + '?format=amnezia';
+        function downloadAmneziaConfig(serverId) {
+          const url = window.location.pathname + '?format=amnezia' + (serverId ? '&server=' + encodeURIComponent(serverId) : '');
+          window.location.href = url;
         }
       </script>
     </body>

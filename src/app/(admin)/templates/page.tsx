@@ -25,6 +25,7 @@ interface Template {
   durationDays: number;
   flow?: string | null;
   _count?: { clients: number };
+  awgServerIds?: string[];
 }
 
 interface Inbound {
@@ -38,6 +39,8 @@ interface Inbound {
 export default function TemplatesPage() {
   const [templates, setTemplates] = useState<Template[]>([]);
   const [inbounds, setInbounds] = useState<Inbound[]>([]);
+  const [awgServersList, setAwgServersList] = useState<any[]>([]);
+  const [selectedAwgServerIds, setSelectedAwgServerIds] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -54,12 +57,13 @@ export default function TemplatesPage() {
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Подгрузка данных (шаблоны + инбаунды)
+  // Подгрузка данных (шаблоны + инбаунды + серверы Amnezia)
   const loadData = async () => {
     try {
-      const [tplRes, inRes] = await Promise.all([
+      const [tplRes, inRes, settingsRes] = await Promise.all([
         fetch('/api/admin/templates'),
         fetch('/api/admin/inbounds'),
+        fetch('/api/admin/settings'),
       ]);
 
       if (tplRes.ok && inRes.ok) {
@@ -69,8 +73,16 @@ export default function TemplatesPage() {
         setTemplates(tplData.templates || []);
         setInbounds(inData.inbounds || []);
       }
+
+      if (settingsRes.ok) {
+        const settingsData = await settingsRes.json();
+        try {
+          const servers = JSON.parse(settingsData.settings.awg_servers || '[]');
+          setAwgServersList(servers.filter((s: any) => s.enabled));
+        } catch (e) {}
+      }
     } catch (e) {
-      console.error('Failed to load data:', e);
+      console.error('Failed to load data in TemplatesPage:', e);
     } finally {
       setIsLoading(false);
     }
@@ -89,6 +101,7 @@ export default function TemplatesPage() {
     setDurationDays(30);
     setFlow('');
     setSelectedInboundIds([]);
+    setSelectedAwgServerIds([]);
     setError(null);
     setIsModalOpen(true);
   };
@@ -101,6 +114,7 @@ export default function TemplatesPage() {
     setLimitIp(template.limitIp);
     setDurationDays(template.durationDays);
     setFlow(template.flow || '');
+    setSelectedAwgServerIds(template.awgServerIds || []);
     
     try {
       setSelectedInboundIds(JSON.parse(template.inboundIdsJson));
@@ -116,6 +130,14 @@ export default function TemplatesPage() {
       setSelectedInboundIds(selectedInboundIds.filter(x => x !== id));
     } else {
       setSelectedInboundIds([...selectedInboundIds, id]);
+    }
+  };
+
+  const toggleAwgServerSelection = (id: string) => {
+    if (selectedAwgServerIds.includes(id)) {
+      setSelectedAwgServerIds(selectedAwgServerIds.filter(x => x !== id));
+    } else {
+      setSelectedAwgServerIds([...selectedAwgServerIds, id]);
     }
   };
 
@@ -147,6 +169,7 @@ export default function TemplatesPage() {
           limitIp,
           durationDays,
           flow,
+          awgServerIds: selectedAwgServerIds,
         }),
       });
 
@@ -593,6 +616,11 @@ export default function TemplatesPage() {
                   <span>Привязано инбаундов 3XUI: <strong>{inboundIdsCount}</strong></span>
                 </div>
 
+                <div className="inbounds-summary" style={{ marginTop: '-12px' }}>
+                  <span className="pulse-indicator" style={{ width: '6px', height: '6px', background: '#a855f7', boxShadow: '0 0 8px #a855f7' }} />
+                  <span>Серверов Amnezia (AWG): <strong>{tpl.awgServerIds?.length || 0}</strong></span>
+                </div>
+
                 <div className="template-footer">
                   <div style={{ fontSize: '11px', color: '#6b7280' }}>
                     Клиентов: <strong style={{ color: '#06b6d4' }}>{tpl._count?.clients || 0}</strong>
@@ -713,6 +741,39 @@ export default function TemplatesPage() {
                 <span className="help-text" style={{ fontSize: '10px', marginTop: '2px', color: '#6b7280' }}>
                   Для Reality VLESS укажите xtls-rprx-vision. Для остальных протоколов оставьте пустым.
                 </span>
+              </div>
+
+              {/* Секция выбора серверов Amnezia (AWG 1.0) */}
+              <div className="form-group">
+                <div className="inbounds-selector-title">Привязать серверы Amnezia WG (Резервный канал)</div>
+                
+                {awgServersList.length > 0 ? (
+                  <div className="inbounds-list-box" style={{ maxHeight: '120px' }}>
+                    {awgServersList.map((server) => {
+                      const isSelected = selectedAwgServerIds.includes(server.id);
+                      return (
+                        <div 
+                          key={server.id} 
+                          className={`inbound-select-item ${isSelected ? 'selected' : ''}`}
+                          onClick={() => toggleAwgServerSelection(server.id)}
+                          style={{ padding: '8px 12px' }}
+                        >
+                          <div className="inbound-details">
+                            <span className="inbound-name" style={{ fontSize: '12px' }}>{server.name}</span>
+                            <span className="inbound-meta" style={{ fontSize: '9px' }}>{server.apiUrl}</span>
+                          </div>
+                          <div className={`inbound-checkbox ${isSelected ? 'selected' : ''}`} style={{ width: '16px', height: '16px' }}>
+                            {isSelected ? <Check size={10} /> : null}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div style={{ padding: '12px 15px', background: 'rgba(255,255,255,0.03)', border: '1px dashed rgba(255,255,255,0.1)', borderRadius: '10px', fontSize: '11px', color: '#9ca3af' }}>
+                    Активные серверы Amnezia не добавлены в Настройках. Резервный канал будет отключен.
+                  </div>
+                )}
               </div>
 
               {/* Секция выбора инбаундов с 3XUI */}

@@ -19,7 +19,25 @@ export async function GET() {
       orderBy: { createdAt: 'desc' },
     });
 
-    return NextResponse.json({ success: true, templates });
+    // Получаем привязки к серверам Amnezia
+    let templateAwgMap: Record<string, string[]> = {};
+    try {
+      const setting = await prisma.appSetting.findUnique({
+        where: { key: 'template_awg_servers' }
+      });
+      if (setting && setting.value) {
+        templateAwgMap = JSON.parse(setting.value);
+      }
+    } catch (e) {
+      console.warn('Failed to load template_awg_servers mapping in templates GET:', e);
+    }
+
+    const templatesWithAwg = templates.map(t => ({
+      ...t,
+      awgServerIds: templateAwgMap[t.id] || []
+    }));
+
+    return NextResponse.json({ success: true, templates: templatesWithAwg });
   } catch (error: any) {
     console.error('Error fetching templates:', error);
     return NextResponse.json({ success: false, error: 'Ошибка при получении списка шаблонов' }, { status: 500 });
@@ -34,7 +52,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: 'Не авторизован' }, { status: 401 });
     }
 
-    const { name, description, inboundIds, trafficLimitGB, limitIp, durationDays, flow } = await req.json();
+    const { name, description, inboundIds, trafficLimitGB, limitIp, durationDays, flow, awgServerIds } = await req.json();
 
     if (!name || name.trim() === '') {
       return NextResponse.json({ success: false, error: 'Название шаблона обязательно' }, { status: 400 });
@@ -64,6 +82,27 @@ export async function POST(req: Request) {
         flow: flow?.trim() || "",
       },
     });
+
+    // Сохраняем связи с серверами Amnezia
+    if (awgServerIds && Array.isArray(awgServerIds)) {
+      try {
+        const setting = await prisma.appSetting.findUnique({
+          where: { key: 'template_awg_servers' }
+        });
+        let templateAwgMap: Record<string, string[]> = {};
+        if (setting && setting.value) {
+          templateAwgMap = JSON.parse(setting.value);
+        }
+        templateAwgMap[template.id] = awgServerIds;
+        await prisma.appSetting.upsert({
+          where: { key: 'template_awg_servers' },
+          update: { value: JSON.stringify(templateAwgMap) },
+          create: { key: 'template_awg_servers', value: JSON.stringify(templateAwgMap) }
+        });
+      } catch (e) {
+        console.error('Failed to save template_awg_servers mapping in templates POST:', e);
+      }
+    }
 
     // Логируем аудит
     await prisma.auditLog.create({
