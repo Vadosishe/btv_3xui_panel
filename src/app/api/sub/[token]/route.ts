@@ -966,7 +966,7 @@ function renderSubscriptionPortal(
             <h2>🛡️ Подключение Amnezia WireGuard</h2>
             <div class="instructions-box">
               <div class="instructions-title">Порядок настройки:</div>
-              1. Установите приложение <strong>AmneziaVPN</strong> на ваше устройство.<br/>
+              1. Установите приложение <strong>AmneziaVPN</strong> (<a href="https://amnezia.org/ru" target="_blank" style="color: var(--cyan-neon); text-decoration: underline;">Официальный сайт</a> или <a href="https://storage.googleapis.com/amnezia/amnezia.org" target="_blank" style="color: var(--cyan-neon); text-decoration: underline;">Зеркало для РФ</a>).<br/>
               2. Скачайте файл конфигурации (.conf) для нужного сервера ниже.<br/>
               3. Импортируйте скачанный файл в приложении AmneziaVPN.
               <div style="margin-top: 8px; color: #a78bfa; font-size: 11px; font-weight: 500;">💡 Также подходит приложение <strong>Amnezia WG</strong>.</div>
@@ -985,8 +985,8 @@ function renderSubscriptionPortal(
             <h2>🛡️ Резервный канал Amnezia WireGuard</h2>
             <div class="instructions-box">
               <div class="instructions-title">Порядок настройки:</div>
-              1. Скачайте файл конфигурации по кнопке ниже.<br/>
-              2. Установите приложение <strong>AmneziaVPN</strong>.<br/>
+              1. Установите приложение <strong>AmneziaVPN</strong> (<a href="https://amnezia.org/ru" target="_blank" style="color: var(--cyan-neon); text-decoration: underline;">Официальный сайт</a> или <a href="https://storage.googleapis.com/amnezia/amnezia.org" target="_blank" style="color: var(--cyan-neon); text-decoration: underline;">Зеркало для РФ</a>).<br/>
+              2. Скачайте файл конфигурации по кнопке ниже.<br/>
               3. Импортируйте скачанный файл в приложении AmneziaVPN.
               <div style="margin-top: 8px; color: #a78bfa; font-size: 11px; font-weight: 500;">💡 Также подходит приложение <strong>Amnezia WG</strong>.</div>
             </div>
@@ -1015,6 +1015,9 @@ function renderSubscriptionPortal(
                 `;
               }).join('')}
             </div>
+            <div style="margin-top: 12px; font-size: 11px; color: var(--text-muted); border-top: 1px solid rgba(255, 255, 255, 0.05); padding-top: 10px; line-height: 1.4;">
+              💡 <strong>Альтернативные клиенты:</strong> Вы также можете использовать официальные приложения <strong>Sing-box</strong>, <strong>v2rayNG</strong> (Android) или <strong>V2Box / Shadowrocket</strong> (iOS).
+            </div>
           </div>
         ` : ''}
 
@@ -1026,10 +1029,9 @@ function renderSubscriptionPortal(
             <ol style="margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; line-height: 1.6;">
               <li>Скопируйте ссылку подписки с помощью кнопки выше.</li>
               <li>
-                Скачайте приложение <strong>Happ - Proxy Utility</strong>:
+                Установите приложение <strong>Happ - Proxy Utility</strong>:
                 <div class="happ-links" style="margin-top: 8px; margin-bottom: 4px;">
-                  <a href="https://apps.apple.com/app/happ-proxy-utility/id6475730248" target="_blank" class="btn-market">🍏 Скачать для iOS</a>
-                  <a href="https://play.google.com/store/apps/details?id=com.happ.proxy" target="_blank" class="btn-market">🤖 Скачать для Android</a>
+                  <a href="https://www.happ.su/main" target="_blank" class="btn-sub" style="padding: 10px 16px; font-size: 12px; display: inline-flex; width: auto; box-shadow: none;">🍏🤖 Скачать Happ (iOS / Android)</a>
                 </div>
               </li>
               <li>Откройте приложение <strong>Happ</strong>, подтвердите автоматический импорт ссылки из буфера обмена и нажмите кнопку подключения в центре.</li>
