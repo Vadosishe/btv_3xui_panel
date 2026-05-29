@@ -67,6 +67,58 @@ export default function SettingsPage() {
   const [testError, setTestError] = useState<string | null>(null);
   const [testSuccess, setTestSuccess] = useState<string | null>(null);
 
+  // Состояния для диагностики Telegram
+  const [tgStatusLoading, setTgStatusLoading] = useState(false);
+  const [tgStatusRepairing, setTgStatusRepairing] = useState(false);
+  const [tgStatusReport, setTgStatusReport] = useState<any>(null);
+  const [tgStatusError, setTgStatusError] = useState<string | null>(null);
+
+  // Получить статус бота из API
+  const handleFetchTgStatus = async () => {
+    setTgStatusLoading(true);
+    setTgStatusError(null);
+    try {
+      const res = await fetch('/api/admin/settings/telegram-status');
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setTgStatusReport(data);
+      } else {
+        setTgStatusError(data.error || 'Не удалось получить диагностические данные.');
+      }
+    } catch (err: any) {
+      setTgStatusError(`Ошибка соединения: ${err.message}`);
+    } finally {
+      setTgStatusLoading(false);
+    }
+  };
+
+  // Выполнить принудительное восстановление бота
+  const handleRepairTgBot = async () => {
+    if (!confirm('Вы действительно хотите переподключить бота? Это сбросит вебхук на серверах Telegram и принудительно перезапустит обработчик сообщений.')) {
+      return;
+    }
+    setTgStatusRepairing(true);
+    setTgStatusError(null);
+    try {
+      const res = await fetch('/api/admin/settings/telegram-status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'repair' }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        alert(`✅ Успешно:\n${data.details}`);
+        handleFetchTgStatus();
+      } else {
+        setTgStatusError(data.error || 'Ошибка во время восстановления.');
+      }
+    } catch (err: any) {
+      setTgStatusError(`Ошибка соединения при восстановлении: ${err.message}`);
+    } finally {
+      setTgStatusRepairing(false);
+    }
+  };
+
   // Состояния для управления администраторами
   const [admins, setAdmins] = useState<any[]>([]);
   const [currentAdminId, setCurrentAdminId] = useState('');
@@ -113,11 +165,12 @@ export default function SettingsPage() {
           setBtwSupportLink(s.btw_support_link || '');
           setAppPanelUrl(s.app_panel_url || '');
           
-          setTgBotToken(s.tg_bot_token || '');
+          const botToken = s.tg_bot_token || '';
+          setTgBotToken(botToken);
           setTgAdminChatIds(s.tg_admin_chat_ids || '');
           setSyncInterval(s.sync_interval_minutes || '15');
           
-           setTgBotUsername(s.xui_telegram_bot_username || '');
+          setTgBotUsername(s.xui_telegram_bot_username || '');
           setBtwSubscriptionPrice(s.btw_subscription_price || '100');
           try {
             setXuiNodeCosts(JSON.parse(s.xui_node_costs || '{}'));
@@ -142,6 +195,17 @@ export default function SettingsPage() {
           setAwgH2(s.awg_h2 || '2');
           setAwgH3(s.awg_h3 || '3');
           setAwgH4(s.awg_h4 || '4');
+
+          if (botToken) {
+            fetch('/api/admin/settings/telegram-status')
+              .then(res => res.json())
+              .then(statusData => {
+                if (statusData.success) {
+                  setTgStatusReport(statusData);
+                }
+              })
+              .catch(err => console.error('Failed to auto-fetch telegram diagnostics:', err));
+          }
         }
 
         if (adminsRes.ok) {
@@ -930,6 +994,173 @@ export default function SettingsPage() {
               </span>
             </div>
           </div>
+
+          {/* --- БЛОК ДИАГНОСТИКИ TELEGRAM-БОТА --- */}
+          {tgBotToken && (
+            <div className="tg-diag-block" style={{
+              marginTop: '25px',
+              padding: '20px',
+              borderRadius: '12px',
+              background: 'rgba(255, 255, 255, 0.02)',
+              border: '1px solid rgba(255, 255, 255, 0.06)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '15px'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <HelpCircle size={16} style={{ color: '#c084fc' }} />
+                  <span style={{ fontSize: '12px', fontWeight: 700, color: '#e9d5ff', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    Статус и Диагностика Telegram-бота
+                  </span>
+                </div>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    type="button"
+                    onClick={handleFetchTgStatus}
+                    disabled={tgStatusLoading || tgStatusRepairing}
+                    className="btn-test-connection"
+                    style={{ fontSize: '11px', padding: '6px 12px', height: 'auto', background: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.1)', color: '#fff' }}
+                  >
+                    {tgStatusLoading ? <Loader size={12} className="spinner" style={{ marginRight: '4px' }} /> : null}
+                    <span>Проверить статус</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleRepairTgBot}
+                    disabled={tgStatusLoading || tgStatusRepairing}
+                    className="btn-test-connection"
+                    style={{ fontSize: '11px', padding: '6px 12px', height: 'auto', background: 'rgba(168, 85, 247, 0.1)', borderColor: 'rgba(168, 85, 247, 0.3)', color: '#c084fc' }}
+                  >
+                    {tgStatusRepairing ? <Loader size={12} className="spinner" style={{ marginRight: '4px' }} /> : null}
+                    <span>Переподключить &amp; Исправить</span>
+                  </button>
+                </div>
+              </div>
+
+              {tgStatusError && (
+                <div className="alert-error" style={{ padding: '10px 12px', fontSize: '13px', borderRadius: '8px' }}>
+                  <AlertTriangle size={16} />
+                  <span>{tgStatusError}</span>
+                </div>
+              )}
+
+              {tgStatusLoading && !tgStatusReport && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#9ca3af', fontSize: '13px', padding: '10px 0' }}>
+                  <Loader className="spinner" size={16} />
+                  <span>Опрос Telegram API и проверка сервера...</span>
+                </div>
+              )}
+
+              {tgStatusReport && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {/* Главный статус бокса */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <span style={{ fontSize: '13px', fontWeight: 600, color: '#e5e7eb' }}>Режим работы:</span>
+                    {tgStatusReport.status === 'INVALID_TOKEN' ? (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', fontWeight: 700, color: '#ef4444', background: 'rgba(239, 68, 68, 0.1)', padding: '4px 8px', borderRadius: '6px', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
+                        🔴 НЕВЕРНЫЙ ТОКЕН БОТА
+                      </span>
+                    ) : tgStatusReport.diagnostics?.activeMode === 'WEBHOOK' ? (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', fontWeight: 700, color: '#34d399', background: 'rgba(16, 185, 129, 0.1)', padding: '4px 8px', borderRadius: '6px', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
+                        🟢 ВЕБХУК АКТИВЕН (HTTPS)
+                      </span>
+                    ) : tgStatusReport.diagnostics?.activeMode === 'POLLING' ? (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', fontWeight: 700, color: '#3b82f6', background: 'rgba(59, 130, 246, 0.1)', padding: '4px 8px', borderRadius: '6px', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
+                        🔵 ЛОКАЛЬНЫЙ ОПРОС (LONG POLLING)
+                      </span>
+                    ) : (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', fontWeight: 700, color: '#f59e0b', background: 'rgba(245, 158, 11, 0.1)', padding: '4px 8px', borderRadius: '6px', border: '1px solid rgba(245, 158, 11, 0.2)' }}>
+                        ⚠️ БОТ НЕ РЕАГИРУЕТ / СПИТ
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Сетка параметров */}
+                  {tgStatusReport.status === 'OK' && (
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                      gap: '12px',
+                      background: 'rgba(0, 0, 0, 0.25)',
+                      padding: '14px',
+                      borderRadius: '8px',
+                      fontSize: '13px',
+                      border: '1px solid rgba(255, 255, 255, 0.04)'
+                    }}>
+                      <div>
+                        <span style={{ color: 'var(--text-muted)' }}>Бот в Telegram: </span>
+                        <strong style={{ color: '#fff' }}>
+                          {tgStatusReport.botInfo?.firstName} (@{tgStatusReport.botInfo?.username})
+                        </strong>
+                      </div>
+                      <div>
+                        <span style={{ color: 'var(--text-muted)' }}>В очереди Telegram: </span>
+                        <strong style={{ color: tgStatusReport.webhookInfo?.pendingUpdateCount > 0 ? '#f59e0b' : '#34d399' }}>
+                          {tgStatusReport.webhookInfo?.pendingUpdateCount ?? 0} сообщений
+                        </strong>
+                      </div>
+                      <div style={{ gridColumn: '1 / -1', wordBreak: 'break-all' }}>
+                        <span style={{ color: 'var(--text-muted)' }}>Зарегистрирован вебхук: </span>
+                        <span style={{ 
+                          color: tgStatusReport.webhookInfo?.url ? '#38bdf8' : '#9ca3af',
+                          fontFamily: 'monospace',
+                          fontSize: '12px'
+                        }}>
+                          {tgStatusReport.webhookInfo?.url || 'Нет вебхука (работает по Long Polling)'}
+                        </span>
+                      </div>
+                      <div>
+                        <span style={{ color: 'var(--text-muted)' }}>Опрос сервера (Long Polling): </span>
+                        <strong style={{ color: tgStatusReport.serverState?.pollingActive ? '#3b82f6' : '#9ca3af' }}>
+                          {tgStatusReport.serverState?.pollingActive ? 'Активен' : 'Отключен'}
+                        </strong>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Предупреждения о несовпадении */}
+                  {tgStatusReport.diagnostics?.hasWebhookUrlMismatch && (
+                    <div className="alert-error" style={{ padding: '10px 12px', fontSize: '12px', borderRadius: '8px', background: 'rgba(245, 158, 11, 0.05)', border: '1px solid rgba(245, 158, 11, 0.15)', color: '#fbbf24' }}>
+                      <AlertTriangle size={16} />
+                      <span>
+                        <strong>Внимание:</strong> Текущий зарегистрированный вебхук в Telegram ({tgStatusReport.webhookInfo?.url}) ведет на старый или чужой адрес. Нажмите кнопку <strong>«Переподключить &amp; Исправить»</strong>, чтобы обновить адрес вебхука на новый: <strong>{tgStatusReport.serverState?.expectedWebhookUrl}</strong>.
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Ошибка вебхука от Telegram */}
+                  {tgStatusReport.webhookInfo?.lastErrorMessage && (
+                    <div className="alert-error" style={{ padding: '12px 14px', fontSize: '12px', borderRadius: '8px', flexDirection: 'column', alignItems: 'flex-start', gap: '6px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <AlertTriangle size={16} style={{ color: '#ef4444' }} />
+                        <strong style={{ color: '#fff' }}>Telegram сообщил об ошибке доставки вебхука:</strong>
+                      </div>
+                      <div style={{ 
+                        background: 'rgba(0,0,0,0.3)',
+                        padding: '8px 12px',
+                        borderRadius: '6px',
+                        fontFamily: 'monospace',
+                        color: '#f87171',
+                        width: '100%',
+                        wordBreak: 'break-all',
+                        marginTop: '4px',
+                        fontSize: '11px'
+                      }}>
+                        {tgStatusReport.webhookInfo.lastErrorMessage}
+                      </div>
+                      <span style={{ color: 'var(--text-muted)', fontSize: '11px', marginTop: '2px' }}>
+                        Дата ошибки: {new Date(tgStatusReport.webhookInfo.lastErrorDate * 1000).toLocaleString('ru-RU')}
+                      </span>
+                      <span style={{ color: '#38bdf8', fontSize: '11px', marginTop: '6px', lineHeight: 1.4 }}>
+                        💡 <strong>Почему это происходит:</strong> Скорее всего, ваш сервер находится за NAT, не имеет доменного имени с HTTPS, имеет недействительный/самоподписанный SSL-сертификат или закрыт брандмауэром. В этом случае Telegram не может слать вебхуки. Нажмите кнопку <strong>«Переподключить &amp; Исправить»</strong> — система сбросит проблемный вебхук и принудительно переведет бота в стабильный режим <strong>Long Polling</strong>, который работает вообще без вебхуков на любом сервере!
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* --- СЕКЦИЯ 4.5: ИНТЕГРАЦИЯ AMNEZIA WG (AWG 1.0) --- */}
