@@ -29,11 +29,12 @@ export async function sendTelegramMessage(token: string, chatId: string | number
  * Обработать входящее сообщение от Telegram пользователя
  */
 export async function handleTelegramMessage(token: string, message: any) {
-  if (!message || !message.chat || !message.text) return;
+  try {
+    if (!message || !message.chat || !message.text) return;
 
-  const chatId = message.chat.id;
-  let text = message.text.trim();
-  const fromName = message.from?.first_name || 'Пользователь';
+    const chatId = message.chat.id;
+    let text = message.text.trim();
+    const fromName = message.from?.first_name || 'Пользователь';
 
   // Маппинг кнопок клавиатуры в стандартные команды
   if (text === '📋 Подать заявку на VPN') text = '/request';
@@ -452,7 +453,22 @@ export async function handleTelegramMessage(token: string, message: any) {
     return;
   }
 
-  // 7. Неподдерживаемые сообщения
-  const unknownText = `🤔 <b>Неизвестная команда</b>\n\nДоступные команды:\n👉 /status — проверить остаток трафика и состояние VPN.\n👉 /config — получить VPN ключи и ссылку подписки.\n👉 /instructions — инструкции по настройке.\n👉 /request — подать заявку на VPN конфигурацию.\n👉 /support — написать в техподдержку.`;
-  await sendTelegramMessage(token, chatId, unknownText);
+    // 7. Неподдерживаемые сообщения
+    const unknownText = `🤔 <b>Неизвестная команда</b>\n\nДоступные команды:\n👉 /status — проверить остаток трафика и состояние VPN.\n👉 /config — получить VPN ключи и ссылку подписки.\n👉 /instructions — инструкции по настройке.\n👉 /request — подать заявку на VPN конфигурацию.\n👉 /support — написать в техподдержку.`;
+    await sendTelegramMessage(token, chatId, unknownText);
+  } catch (err: any) {
+    console.error('Error in handleTelegramMessage:', err);
+    try {
+      const chatId = message?.chat?.id;
+      if (chatId) {
+        await sendTelegramMessage(
+          token,
+          chatId,
+          `⚠️ <b>Внутренняя ошибка сервера</b>\n\nПроизошел сбой при обработке вашего запроса. Пожалуйста, убедитесь, что база данных обновлена, или обратитесь к администратору.`
+        );
+      }
+    } catch (sendErr) {
+      console.error('Failed to send error notification to user:', sendErr);
+    }
+  }
 }
