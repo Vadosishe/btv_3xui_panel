@@ -576,8 +576,62 @@ export function generateConfigLink(
       vmessJson.fp = settingsObj.fingerprint || realitySettings.fingerprint || 'chrome';
     }
 
-    const base64Vmess = Buffer.from(JSON.stringify(vmessJson)).toString('base64');
-    return `vmess://${base64Vmess}`;
+  }
+
+  if (protocol === 'hysteria2' || protocol === 'hy2') {
+    // Парсим settings для обфускации
+    let settings: any = {};
+    try {
+      settings = typeof inbound.settings === 'string'
+        ? JSON.parse(inbound.settings)
+        : inbound.settings || {};
+    } catch (e) {}
+
+    const obfsSettings = settings.obfs || {};
+    const obfsType = obfsSettings.type || 'none';
+    const obfsPassword = obfsSettings.password || '';
+
+    // Парсим streamSettings для TLS/SNI
+    const tlsSettings = streamSettings.tlsSettings || {};
+    const sni = tlsSettings.serverName || '';
+    const insecure = tlsSettings.allowInsecure ? '1' : '0';
+
+    let link = `hysteria2://${clientUuid}@${customDomainOrIp}:${port}?insecure=${insecure}`;
+    if (sni) link += `&sni=${encodeURIComponent(sni)}`;
+    if (obfsType && obfsType !== 'none') {
+      link += `&obfs=${encodeURIComponent(obfsType)}`;
+      if (obfsPassword) link += `&obfs-password=${encodeURIComponent(obfsPassword)}`;
+    }
+    link += `#${remark}`;
+    return link;
+  }
+
+  if (protocol === 'tuic') {
+    let settings: any = {};
+    try {
+      settings = typeof inbound.settings === 'string'
+        ? JSON.parse(inbound.settings)
+        : inbound.settings || {};
+    } catch (e) {}
+
+    const congestion = settings.congestion_control || 'bbr';
+    const udpRelay = settings.udp_relay_mode || 'native';
+    
+    let alpn = 'h3';
+    if (Array.isArray(settings.alpn)) {
+      alpn = settings.alpn.join(',');
+    } else if (typeof settings.alpn === 'string') {
+      alpn = settings.alpn;
+    }
+
+    const tlsSettings = streamSettings.tlsSettings || {};
+    const sni = tlsSettings.serverName || '';
+    const insecure = tlsSettings.allowInsecure ? '1' : '0';
+
+    let link = `tuic://${clientUuid}:${clientUuid}@${customDomainOrIp}:${port}?congestion_control=${congestion}&udp_relay_mode=${udpRelay}&alpn=${encodeURIComponent(alpn)}&insecure=${insecure}`;
+    if (sni) link += `&sni=${encodeURIComponent(sni)}`;
+    link += `#${remark}`;
+    return link;
   }
 
   return '';

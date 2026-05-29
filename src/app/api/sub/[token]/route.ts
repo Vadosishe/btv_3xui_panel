@@ -176,8 +176,21 @@ export async function GET(
 
     // --- СЦЕНАРИЙ 2: Запрос из VPN КЛИЕНТА (возвращаем Base64 список конфигов) ---
     if (!isActive) {
-      // Для неактивных клиентов отдаем пустую подписку (VPN клиент не сможет подключиться)
-      return new NextResponse('', { status: 200 });
+      // Для неактивных клиентов отдаем пустую подписку с заголовками лимитов
+      const limitGB = client?.trafficLimitGB !== null && client?.trafficLimitGB !== undefined ? client.trafficLimitGB : (client?.template?.trafficLimitGB || 0);
+      const limitBytes = limitGB > 0 ? BigInt(limitGB) * BigInt(1024 * 1024 * 1024) : BigInt(0);
+      const usedBytes = client?.usedTrafficBytes || BigInt(0);
+      const expiryTimestamp = client?.expiresAt ? Math.floor(new Date(client.expiresAt).getTime() / 1000) : 0;
+
+      return new NextResponse('', {
+        status: 200,
+        headers: {
+          'Content-Type': 'text/plain; charset=utf-8',
+          'Cache-Control': 'no-store',
+          'Subscription-Userinfo': `upload=0; download=${usedBytes.toString()}; total=${limitBytes.toString()}; expire=${expiryTimestamp}`,
+          'profile-update-interval': '12',
+        }
+      });
     }
 
     // Получаем инбаунды и генерируем конфиги
@@ -210,10 +223,17 @@ export async function GET(
     const subscriptionContent = configs.join('\n');
     const base64Content = Buffer.from(subscriptionContent).toString('base64');
 
+    const limitGB = client.trafficLimitGB !== null ? client.trafficLimitGB : client.template.trafficLimitGB;
+    const limitBytes = limitGB > 0 ? BigInt(limitGB) * BigInt(1024 * 1024 * 1024) : BigInt(0);
+    const usedBytes = client.usedTrafficBytes;
+    const expiryTimestamp = client.expiresAt ? Math.floor(new Date(client.expiresAt).getTime() / 1000) : 0;
+
     return new NextResponse(base64Content, {
       headers: {
         'Content-Type': 'text/plain; charset=utf-8',
         'Cache-Control': 'no-store',
+        'Subscription-Userinfo': `upload=0; download=${usedBytes.toString()}; total=${limitBytes.toString()}; expire=${expiryTimestamp}`,
+        'profile-update-interval': '12',
       },
     });
   } catch (error: any) {
