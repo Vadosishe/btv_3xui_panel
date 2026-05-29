@@ -88,6 +88,12 @@ async function awgServerRequest<T = any>(
 ): Promise<T | null> {
   if (!server.enabled) return null;
 
+  // Если сессионной куки еще нет в оперативной памяти — принудительно логинимся сначала
+  if (!awgSessionCookies[server.id]) {
+    console.log(`[AWG SESSION] No session cookie for ${server.name}. Proactively logging in...`);
+    await loginToAwgServer(server);
+  }
+
   const baseUrl = server.apiUrl.endsWith('/') ? server.apiUrl.slice(0, -1) : server.apiUrl;
   const url = `${baseUrl}${path}`;
   const headers: Record<string, string> = {
@@ -111,8 +117,9 @@ async function awgServerRequest<T = any>(
       cache: 'no-store',
     });
 
-    if (res.status === 401 && !isRetry) {
-      console.log(`AWG Server ${server.name} API returned 401. Refreshing session...`);
+    // Обрабатываем и 401, и 500 (Nuxt возвращает 500 на отсутствие сессии) как повод обновить сессию и переповторить запрос!
+    if ((res.status === 401 || res.status === 500) && !isRetry) {
+      console.log(`AWG Server ${server.name} API returned status ${res.status}. Refreshing session cookie and retrying...`);
       const freshCookie = await loginToAwgServer(server);
       if (freshCookie) {
         return awgServerRequest<T>(server, path, method, body, true);
