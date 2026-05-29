@@ -651,11 +651,12 @@ function renderSubscriptionPortal(
           line-height: 1.6;
           margin-bottom: 16px;
         }
-        .instructions-box strong {
+        .instructions-title {
           color: #fff;
           font-size: 13px;
           display: block;
-          margin-bottom: 6px;
+          margin-bottom: 8px;
+          font-weight: 700;
         }
         .instructions-cyan {
           background: rgba(0, 240, 255, 0.04);
@@ -964,10 +965,11 @@ function renderSubscriptionPortal(
           <div class="card">
             <h2>🛡️ Подключение Amnezia WireGuard</h2>
             <div class="instructions-box">
-              <strong>Порядок настройки:</strong>
+              <div class="instructions-title">Порядок настройки:</div>
               1. Установите приложение <strong>AmneziaVPN</strong> на ваше устройство.<br/>
               2. Скачайте файл конфигурации (.conf) для нужного сервера ниже.<br/>
               3. Импортируйте скачанный файл в приложении AmneziaVPN.
+              <div style="margin-top: 8px; color: #a78bfa; font-size: 11px; font-weight: 500;">💡 Также подходит приложение <strong>Amnezia WG</strong>.</div>
             </div>
             <div class="actions" style="gap: 10px;">
               ${clientAwgServers.map(server => `
@@ -982,10 +984,11 @@ function renderSubscriptionPortal(
           <div class="card">
             <h2>🛡️ Резервный канал Amnezia WireGuard</h2>
             <div class="instructions-box">
-              <strong>Порядок настройки:</strong>
+              <div class="instructions-title">Порядок настройки:</div>
               1. Скачайте файл конфигурации по кнопке ниже.<br/>
               2. Установите приложение <strong>AmneziaVPN</strong>.<br/>
               3. Импортируйте скачанный файл в приложении AmneziaVPN.
+              <div style="margin-top: 8px; color: #a78bfa; font-size: 11px; font-weight: 500;">💡 Также подходит приложение <strong>Amnezia WG</strong>.</div>
             </div>
             <button class="btn-download" onclick="downloadAmneziaConfig()">
               <span>📥</span> Скачать конфиг Amnezia (.vpn)
@@ -1019,7 +1022,7 @@ function renderSubscriptionPortal(
         <div class="card">
           <h2>⚡ Настройка через Happ</h2>
           <div class="instructions-box instructions-cyan">
-            <strong style="font-size: 13px; display: block; margin-bottom: 8px;">Рекомендуемый способ подключения:</strong>
+            <div class="instructions-title" style="color: #22d3ee;">Рекомендуемый способ подключения:</div>
             <ol style="margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; line-height: 1.6;">
               <li>Скопируйте ссылку подписки с помощью кнопки выше.</li>
               <li>
