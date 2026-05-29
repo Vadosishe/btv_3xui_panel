@@ -123,12 +123,31 @@ export async function handleTelegramMessage(token: string, message: any) {
     });
 
     if (client) {
+      // Синхронизируем трафик перед показом статуса
+      let usedTrafficBytes = client.usedTrafficBytes;
+      try {
+        const { xuiGetClientTraffic } = await import('./xui');
+        const traffic = await xuiGetClientTraffic(client.email);
+        if (traffic) {
+          const totalUsed = BigInt(traffic.up || 0) + BigInt(traffic.down || 0);
+          usedTrafficBytes = totalUsed;
+          
+          // Фоновое сохранение в БД без ожидания ответа
+          prisma.client.update({
+            where: { id: client.id },
+            data: { usedTrafficBytes: totalUsed, lastSyncedAt: new Date() }
+          }).catch(dbErr => console.error('Failed to update synced traffic for client inside telegram status:', dbErr));
+        }
+      } catch (err) {
+        console.warn('Failed to sync traffic on telegram status request:', err);
+      }
+
       const now = new Date();
       const isExpired = client.expiresAt ? new Date(client.expiresAt) < now : false;
       const isCompanyActive = client.company.isActive;
       const isActive = client.isActive && isCompanyActive && !isExpired;
 
-      const usedGB = (Number(client.usedTrafficBytes) / (1024 * 1024 * 1024)).toFixed(2);
+      const usedGB = (Number(usedTrafficBytes) / (1024 * 1024 * 1024)).toFixed(2);
       
       const limitGB = client.trafficLimitGB !== null ? client.trafficLimitGB : client.template.trafficLimitGB;
       const limitGBText = limitGB > 0 ? `${limitGB} GB` : 'Безлимит';

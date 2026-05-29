@@ -57,6 +57,11 @@ export function startTelegramPolling() {
             }
           }
         } else {
+          if (res.status === 409) {
+            console.log('🤖 Telegram Webhook is active. Suspending background Long Polling to prevent conflicts.');
+            globalThis.telegramPollingActive = false;
+            continue;
+          }
           // Если пришел ошибочный статус от Telegram (например, неверный токен)
           await new Promise((resolve) => setTimeout(resolve, 10000));
         }

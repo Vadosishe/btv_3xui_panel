@@ -74,6 +74,57 @@ export async function POST(req: Request) {
       console.warn('Failed to clear XUI cache during settings update:', e);
     }
 
+    // Автоматическое управление Webhook / Long Polling Telegram бота
+    const tgBotToken = newSettings.tg_bot_token;
+    const appPanelUrl = newSettings.app_panel_url;
+
+    if (tgBotToken !== undefined || appPanelUrl !== undefined) {
+      // Извлекаем актуальные значения, даже если часть из них не передана в текущем запросе
+      const currentSettings = await prisma.appSetting.findMany({
+        where: { key: { in: ['tg_bot_token', 'app_panel_url'] } }
+      });
+      const currentMap = new Map(currentSettings.map(s => [s.key, s.value]));
+      
+      const activeToken = currentMap.get('tg_bot_token') || '';
+      const activeUrl = currentMap.get('app_panel_url') || '';
+
+      if (activeToken) {
+        if (activeUrl && activeUrl.startsWith('https://')) {
+          // Регистрируем Webhook в Telegram
+          try {
+            const webhookUrl = `${activeUrl}/api/telegram/webhook`;
+            const setWebhookRes = await fetch(`https://api.telegram.org/bot${activeToken}/setWebhook?url=${encodeURIComponent(webhookUrl)}`);
+            if (setWebhookRes.ok) {
+              const data = await setWebhookRes.json();
+              if (data.ok) {
+                console.log(`🤖 Telegram Webhook successfully registered to: ${webhookUrl}`);
+                // Останавливаем Long Polling, так как активен Webhook
+                const { stopTelegramPolling } = await import('@/lib/telegram-polling');
+                stopTelegramPolling();
+              } else {
+                console.warn('Telegram setWebhook returned failed payload:', data);
+              }
+            }
+          } catch (err: any) {
+            console.error('Failed to register Telegram Webhook:', err.message);
+          }
+        } else {
+          // Если URL локальный/http или пустой — удаляем Webhook для работы Long Polling
+          try {
+            const deleteWebhookRes = await fetch(`https://api.telegram.org/bot${activeToken}/deleteWebhook`);
+            if (deleteWebhookRes.ok) {
+              console.log('🤖 Telegram Webhook successfully deleted. Falling back to background Long Polling.');
+              // Перезапускаем Long Polling
+              const { startTelegramPolling } = await import('@/lib/telegram-polling');
+              startTelegramPolling();
+            }
+          } catch (err: any) {
+            console.error('Failed to delete Telegram Webhook:', err.message);
+          }
+        }
+      }
+    }
+
     // Логируем аудит
     await prisma.auditLog.create({
       data: {

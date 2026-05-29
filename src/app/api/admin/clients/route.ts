@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 import prisma from '@/lib/prisma';
 import { getSession } from '@/lib/auth';
-import { xuiAddClient, xuiDeleteClient, getCleanLatinName } from '@/lib/xui';
+import { xuiAddClient, xuiDeleteClient, getCleanLatinName, xuiClearCache } from '@/lib/xui';
 
 // 1. Получить список всех клиентов
 export async function GET() {
@@ -272,6 +272,10 @@ export async function POST(req: Request) {
     if (createdClients.length === 0 && failedNames.length > 0) {
       return NextResponse.json({ success: false, error: `Сбой создания клиентов: ${lastError}`, failed: failedNames }, { status: 502 });
     }
+
+    try {
+      xuiClearCache();
+    } catch (e) {}
 
     return NextResponse.json({
       success: true,

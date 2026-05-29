@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { getSession } from '@/lib/auth';
-import { xuiGetInbounds } from '@/lib/xui';
+import { xuiGetInbounds, xuiClearCache } from '@/lib/xui';
 import crypto from 'crypto';
 
 // Продвинутая синхронизация трафика и автоматический импорт клиентов из 3XUI в PostgreSQL
@@ -14,6 +14,11 @@ export async function POST() {
 
     console.log('Starting client traffic synchronization and auto-import from 3XUI...');
     
+    // Сбрасываем кэш перед ручным запуском синхронизации, чтобы гарантировать получение свежих данных
+    try {
+      xuiClearCache();
+    } catch (e) {}
+
     // 1. Получаем все инбаунды и статистику клиентов с сервера 3XUI
     let inbounds: any[] = [];
     try {

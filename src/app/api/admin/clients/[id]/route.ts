@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { getSession } from '@/lib/auth';
-import { xuiAddClient, xuiDeleteClient, xuiGetInbounds, generateConfigLink } from '@/lib/xui';
+import { xuiAddClient, xuiDeleteClient, xuiGetInbounds, generateConfigLink, xuiClearCache } from '@/lib/xui';
 import QRCode from 'qrcode';
 
 // 1. Получить детальную информацию о клиенте + сгенерированные VPN-ссылки
@@ -262,6 +262,10 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       },
     });
 
+    try {
+      xuiClearCache();
+    } catch (e) {}
+
     return NextResponse.json({
       success: true,
       client: {
@@ -322,6 +326,10 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
         adminId: session.userId,
       },
     });
+
+    try {
+      xuiClearCache();
+    } catch (e) {}
 
     return NextResponse.json({ success: true, message: 'Клиент успешно удален из БД и серверов VPN' });
   } catch (error: any) {
