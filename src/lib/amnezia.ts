@@ -207,7 +207,17 @@ export async function amneziaAddPeerOnServer(server: AwgServer, clientEmail: str
     // Пробуем создать через Nuxt API
     console.log(`[AWG API DETECT] Trying POST /api/wireguard/client...`);
     let res = await awgServerRequest<any>(server, '/api/wireguard/client', 'POST', { name: clientEmail });
-    if (res && res.id) return res;
+    if (res && (res.id || res.success)) {
+      // Re-fetch peers list to find the newly created peer and its ID
+      const freshPeers = await fetchPeers(server);
+      if (Array.isArray(freshPeers)) {
+        const newlyCreated = freshPeers.find(p => p.name.toLowerCase().trim() === clientEmail.toLowerCase().trim());
+        if (newlyCreated) {
+          return newlyCreated;
+        }
+      }
+      return res;
+    }
 
     return null;
   } catch (err: any) {
