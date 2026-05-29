@@ -144,6 +144,37 @@ export async function xuiAddClient(
     tgId?: string;
   }
 ): Promise<boolean> {
+  // Определение корректного flow на основе настроек инбаунда
+  let finalFlow = client.flow || '';
+  try {
+    const inbounds = await xuiGetInbounds();
+    const inbound = inbounds.find(i => i.id === inboundId);
+    if (inbound) {
+      const protocol = inbound.protocol.toLowerCase();
+      let streamSettings: any = {};
+      try {
+        streamSettings = typeof inbound.streamSettings === 'string'
+          ? JSON.parse(inbound.streamSettings)
+          : inbound.streamSettings || {};
+      } catch (e) {}
+
+      const security = streamSettings.security || 'none';
+      const network = streamSettings.network || 'tcp';
+
+      // flow (например, xtls-rprx-vision) поддерживается ТОЛЬКО для VLESS с Reality/TLS поверх TCP
+      if (protocol === 'vless' && (security === 'reality' || security === 'tls') && network === 'tcp') {
+        if (!finalFlow || finalFlow === 'none') {
+          finalFlow = 'xtls-rprx-vision';
+        }
+      } else {
+        // Во всех остальных случаях параметр flow должен быть полностью пустым
+        finalFlow = '';
+      }
+    }
+  } catch (err) {
+    console.warn(`Failed to inspect inbound ${inboundId} for flow validation:`, err);
+  }
+
   // Настройки клиента для 3XUI Merlin
   const clientPayload = {
     id: client.id,
@@ -154,7 +185,7 @@ export async function xuiAddClient(
     tgId: client.tgId ? Number(client.tgId) : 0,
     limitIp: client.limitIp ?? 0,
     enable: client.enable ?? true,
-    flow: client.flow || 'xtls-rprx-vision',
+    flow: finalFlow,
     comment: 'BTV Client'
   };
 
@@ -223,6 +254,37 @@ export async function xuiUpdateClient(
     tgId?: string;
   }
 ): Promise<boolean> {
+  // Определение корректного flow на основе настроек инбаунда
+  let finalFlow = client.flow || '';
+  try {
+    const inbounds = await xuiGetInbounds();
+    const inbound = inbounds.find(i => i.id === inboundId);
+    if (inbound) {
+      const protocol = inbound.protocol.toLowerCase();
+      let streamSettings: any = {};
+      try {
+        streamSettings = typeof inbound.streamSettings === 'string'
+          ? JSON.parse(inbound.streamSettings)
+          : inbound.streamSettings || {};
+      } catch (e) {}
+
+      const security = streamSettings.security || 'none';
+      const network = streamSettings.network || 'tcp';
+
+      // flow (например, xtls-rprx-vision) поддерживается ТОЛЬКО для VLESS с Reality/TLS поверх TCP
+      if (protocol === 'vless' && (security === 'reality' || security === 'tls') && network === 'tcp') {
+        if (!finalFlow || finalFlow === 'none') {
+          finalFlow = 'xtls-rprx-vision';
+        }
+      } else {
+        // Во всех остальных случаях параметр flow должен быть полностью пустым
+        finalFlow = '';
+      }
+    }
+  } catch (err) {
+    console.warn(`Failed to inspect inbound ${inboundId} for flow validation:`, err);
+  }
+
   const clientPayload = {
     id: client.id,
     email: client.email,
@@ -232,7 +294,7 @@ export async function xuiUpdateClient(
     tgId: client.tgId ? Number(client.tgId) : 0,
     limitIp: client.limitIp ?? 0,
     enable: client.enable ?? true,
-    flow: client.flow || 'xtls-rprx-vision',
+    flow: finalFlow,
     comment: 'BTV Client'
   };
 
@@ -331,6 +393,32 @@ export function generateConfigLink(
     const key = quicSettings.key || '';
     const headerType = quicSettings.header?.type || 'none';
     transportParams += `&quicSecurity=${encodeURIComponent(quicSecurity)}&key=${encodeURIComponent(key)}&headerType=${encodeURIComponent(headerType)}`;
+  } else if (network === 'tcp') {
+    // Поддержка HTTP обфускации для TCP
+    const tcpSettings = streamSettings.tcpSettings || {};
+    const headerType = tcpSettings.header?.type || 'none';
+    if (headerType === 'http') {
+      transportParams += `&headerType=http`;
+      const request = tcpSettings.header?.request || {};
+      const headers = request.headers || {};
+      let host = '';
+      const hostHeader = headers.Host || headers.host || '';
+      if (Array.isArray(hostHeader)) {
+        host = hostHeader[0] || '';
+      } else if (typeof hostHeader === 'string') {
+        host = hostHeader;
+      }
+      if (host) transportParams += `&host=${encodeURIComponent(host)}`;
+
+      let path = '';
+      const pathVal = request.path || '';
+      if (Array.isArray(pathVal)) {
+        path = pathVal[0] || '';
+      } else if (typeof pathVal === 'string') {
+        path = pathVal;
+      }
+      if (path) transportParams += `&path=${encodeURIComponent(path)}`;
+    }
   }
 
   if (protocol === 'vless') {
@@ -339,26 +427,34 @@ export function generateConfigLink(
 
     if (security === 'reality') {
       const realitySettings = streamSettings.realitySettings || {};
-      const sni = realitySettings.serverNames?.[0] || realitySettings.dest?.split(':')?.[0] || '';
+      const settingsObj = realitySettings.settings || {};
       
-      // Поддержка вложенной структуры настроек Reality в Merlin (realitySettings.settings.publicKey)
-      const pbk = realitySettings.settings?.publicKey || realitySettings.publicKey || '';
-      const fp = realitySettings.settings?.fingerprint || realitySettings.fingerprint || 'chrome';
-      const spiderX = realitySettings.settings?.spiderX !== undefined ? realitySettings.settings.spiderX : (realitySettings.spiderX || '/');
-      const sid = realitySettings.shortIds?.[0] || '';
+      const sni = realitySettings.serverNames?.[0] || settingsObj.serverNames?.[0] || realitySettings.dest?.split(':')?.[0] || settingsObj.dest?.split(':')?.[0] || '';
+      const pbk = settingsObj.publicKey || realitySettings.publicKey || '';
+      const fp = settingsObj.fingerprint || realitySettings.fingerprint || 'chrome';
+      const spiderX = settingsObj.spiderX !== undefined ? settingsObj.spiderX : (realitySettings.spiderX || '/');
+      const sid = realitySettings.shortIds?.[0] || settingsObj.shortIds?.[0] || '';
 
       link += `&sni=${encodeURIComponent(sni)}&pbk=${encodeURIComponent(pbk)}&fp=${fp}`;
       if (sid) link += `&sid=${sid}`;
       if (spiderX) link += `&spx=${encodeURIComponent(spiderX)}`;
       
-      const flowVal = customFlow !== undefined && customFlow !== null ? customFlow.trim() : 'xtls-rprx-vision';
-      if (flowVal && flowVal !== 'none') {
-        link += `&flow=${flowVal}`;
+      // flow (например, xtls-rprx-vision) поддерживается ТОЛЬКО для TCP
+      if (network === 'tcp') {
+        const flowVal = customFlow !== undefined && customFlow !== null ? customFlow.trim() : 'xtls-rprx-vision';
+        if (flowVal && flowVal !== 'none') {
+          link += `&flow=${flowVal}`;
+        }
       }
     } else if (security === 'tls') {
       const tlsSettings = streamSettings.tlsSettings || {};
       const sni = tlsSettings.serverName || '';
       if (sni) link += `&sni=${encodeURIComponent(sni)}`;
+      
+      // flow поддерживается только для TCP
+      if (network === 'tcp' && customFlow && customFlow !== 'none') {
+        link += `&flow=${customFlow.trim()}`;
+      }
     }
 
     link += `#${remark}`;
@@ -392,6 +488,96 @@ export function generateConfigLink(
     const method = settings.method || 'aes-256-gcm';
     const credentials = Buffer.from(`${method}:${clientUuid}`).toString('base64');
     return `ss://${credentials}@${customDomainOrIp}:${port}#${remark}`;
+  }
+
+  if (protocol === 'vmess') {
+    // Формируем VMess ссылку (Base64 JSON в соответствии со стандартом v2rayN/v2rayNG/Nekobox)
+    const vmessJson: any = {
+      v: "2",
+      ps: decodeURIComponent(remark),
+      add: customDomainOrIp,
+      port: Number(port),
+      id: clientUuid,
+      aid: "0",
+      scy: "auto",
+      net: network,
+      type: "none",
+      host: "",
+      path: "",
+      tls: security === 'none' ? 'none' : 'tls',
+      sni: "",
+      fp: ""
+    };
+
+    // Параметры транспорта в VMess JSON
+    if (network === 'ws') {
+      const wsSettings = streamSettings.wsSettings || {};
+      vmessJson.path = wsSettings.path || '/';
+      const host = wsSettings.headers?.Host || wsSettings.headers?.host || '';
+      if (host) vmessJson.host = host;
+    } else if (network === 'grpc') {
+      const grpcSettings = streamSettings.grpcSettings || {};
+      vmessJson.path = grpcSettings.serviceName || '';
+      vmessJson.type = 'grpc';
+    } else if (network === 'tcp') {
+      const tcpSettings = streamSettings.tcpSettings || {};
+      const headerType = tcpSettings.header?.type || 'none';
+      if (headerType === 'http') {
+        vmessJson.type = 'http';
+        const request = tcpSettings.header?.request || {};
+        const headers = request.headers || {};
+        let host = '';
+        const hostHeader = headers.Host || headers.host || '';
+        if (Array.isArray(hostHeader)) {
+          host = hostHeader[0] || '';
+        } else if (typeof hostHeader === 'string') {
+          host = hostHeader;
+        }
+        if (host) vmessJson.host = host;
+
+        let path = '';
+        const pathVal = request.path || '';
+        if (Array.isArray(pathVal)) {
+          path = pathVal[0] || '';
+        } else if (typeof pathVal === 'string') {
+          path = pathVal;
+        }
+        if (path) vmessJson.path = path;
+      }
+    } else if (network === 'kcp') {
+      const kcpSettings = streamSettings.kcpSettings || {};
+      vmessJson.type = kcpSettings.header?.type || 'none';
+    } else if (network === 'quic') {
+      const quicSettings = streamSettings.quicSettings || {};
+      vmessJson.type = quicSettings.header?.type || 'none';
+      vmessJson.host = quicSettings.security || 'none';
+      vmessJson.path = quicSettings.key || '';
+    } else if (network === 'http' || network === 'h2') {
+      const httpSettings = streamSettings.httpSettings || streamSettings.h2Settings || {};
+      vmessJson.path = httpSettings.path || '/';
+      let host = '';
+      if (Array.isArray(httpSettings.host)) {
+        host = httpSettings.host[0] || '';
+      } else if (typeof httpSettings.host === 'string') {
+        host = httpSettings.host;
+      }
+      if (host) vmessJson.host = host;
+    }
+
+    if (security === 'tls') {
+      const tlsSettings = streamSettings.tlsSettings || {};
+      vmessJson.sni = tlsSettings.serverName || '';
+      vmessJson.alpn = tlsSettings.alpn ? tlsSettings.alpn.join(',') : '';
+    } else if (security === 'reality') {
+      const realitySettings = streamSettings.realitySettings || {};
+      const settingsObj = realitySettings.settings || {};
+      vmessJson.tls = 'reality';
+      vmessJson.sni = realitySettings.serverNames?.[0] || settingsObj.serverNames?.[0] || realitySettings.dest?.split(':')?.[0] || settingsObj.dest?.split(':')?.[0] || '';
+      vmessJson.fp = settingsObj.fingerprint || realitySettings.fingerprint || 'chrome';
+    }
+
+    const base64Vmess = Buffer.from(JSON.stringify(vmessJson)).toString('base64');
+    return `vmess://${base64Vmess}`;
   }
 
   return '';
