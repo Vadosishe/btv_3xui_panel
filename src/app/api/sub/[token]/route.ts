@@ -930,12 +930,12 @@ function renderSubscriptionPortal(
         </div>
 
         <div class="welcome-card">
-          Привет, <strong>${client.name}</strong>! Ваше VPN-подключение готово к работе. Ниже представлены настройки и статистика.
+          Приветствуем, <strong>${client.name}</strong>! Параметры вашего подключения и статистика использования приведены ниже.
         </div>
 
         <!-- 1. ПОДКЛЮЧЕНИЕ: ССЫЛКИ И QR-КОД (Сверху) -->
         <div class="card">
-          <h2>🛜 Быстрое подключение</h2>
+          <h2>🛜 Подключение подписки</h2>
           <div class="actions">
             <button class="btn-sub" onclick="copySubscription()">
               <span>📋</span> Скопировать ссылку подписки
@@ -949,7 +949,7 @@ function renderSubscriptionPortal(
                 <img src="${qrCodeDataUrl}" alt="Subscription QR Code" />
               </div>
               <div class="qr-desc">
-                Отсканируйте этот QR-код в мобильном приложении (v2rayNG / Sing-box / Shadowrocket) для автоматического импорта конфигураций.
+                Используйте кнопку копирования или отсканируйте QR-код в приложении (v2rayNG, Sing-box, Shadowrocket) для импорта подписки.
               </div>
             </div>
           ` : `
@@ -962,33 +962,33 @@ function renderSubscriptionPortal(
         <!-- 2. СЕКЦИЯ AMNEZIA WG (Сверху, если привязано) -->
         ${clientAwgServers.length > 0 ? `
           <div class="card">
-            <h2>🛡️ Ультрастойкий Amnezia WG (AWG)</h2>
+            <h2>🛡️ Подключение Amnezia WireGuard</h2>
             <div class="instructions-box">
-              <strong>Инструкция по настройке:</strong>
-              1. Скачайте и установите приложение <strong>AmneziaVPN</strong>.<br/>
-              2. Скачайте файл конфигурации (.conf) для нужной локации ниже.<br/>
-              3. В приложении выберите «Импортировать файл настроек» и выберите скачанный файл.
+              <strong>Порядок настройки:</strong>
+              1. Установите приложение <strong>AmneziaVPN</strong> на ваше устройство.<br/>
+              2. Скачайте файл конфигурации (.conf) для нужного сервера ниже.<br/>
+              3. Импортируйте скачанный файл в приложении AmneziaVPN.
             </div>
             <div class="actions" style="gap: 10px;">
               ${clientAwgServers.map(server => `
                 <button class="btn-download" onclick="downloadAmneziaConfig('${server.id}')">
                   <span>📥</span>
-                  <span>Скачать конфиг: <b>${server.name}</b> (.conf)</span>
+                  <span>Скачать файл: <b>${server.name}</b> (.conf)</span>
                 </button>
               `).join('')}
             </div>
           </div>
         ` : `
           <div class="card">
-            <h2>🛡️ Резервный канал AmneziaVPN</h2>
+            <h2>🛡️ Резервный канал Amnezia WireGuard</h2>
             <div class="instructions-box">
-              <strong>Инструкция по настройке:</strong>
-              1. Скачайте файл резервного конфига по кнопке ниже.<br/>
+              <strong>Порядок настройки:</strong>
+              1. Скачайте файл конфигурации по кнопке ниже.<br/>
               2. Установите приложение <strong>AmneziaVPN</strong>.<br/>
-              3. Откройте приложение, перейдите в «Импортировать резервную копию или файл настройки» и откройте скачанный <strong>.vpn</strong> файл.
+              3. Импортируйте скачанный файл в приложении AmneziaVPN.
             </div>
             <button class="btn-download" onclick="downloadAmneziaConfig()">
-              <span>📥</span> Скачать конфиг AmneziaVPN (.vpn)
+              <span>📥</span> Скачать конфиг Amnezia (.vpn)
             </button>
           </div>
         `}
@@ -996,9 +996,9 @@ function renderSubscriptionPortal(
         <!-- 3. VLESS КЛЮЧИ ДЛЯ РУЧНОГО ИМПОРТА (Сверху) -->
         ${configLinks.length > 0 ? `
           <div class="card">
-            <h2>🔑 VLESS Ключи импорта</h2>
+            <h2>🔑 Конфигурации VLESS</h2>
             <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 12px; line-height: 1.4;">
-              Если вы настраиваете VPN вручную, скопируйте любой из этих ключей и импортируйте его в v2rayNG / Nekobox / Shadowrocket.
+              Для ручной настройки скопируйте нужный ключ и импортируйте его в клиент (v2rayNG, Nekobox, Shadowrocket).
             </div>
             <div class="actions" style="gap: 8px;">
               ${configLinks.map((link, idx) => {
@@ -1017,16 +1017,20 @@ function renderSubscriptionPortal(
 
         <!-- 4. БЫСТРАЯ НАСТРОЙКА HAPP (Сверху) -->
         <div class="card">
-          <h2>⚡ Настройка в 1 клик (HAPP)</h2>
+          <h2>⚡ Настройка через Happ</h2>
           <div class="instructions-box instructions-cyan">
-            <strong>Самый простой способ подключения:</strong>
-            1. Скопируйте ссылку подписки кнопкой выше.<br/>
-            2. Скачайте приложение <strong>Happ - Proxy Utility</strong>:<br/>
-            <div class="happ-links">
-              <a href="https://apps.apple.com/app/happ-proxy-utility/id6475730248" target="_blank" class="btn-market">🍏 Скачать для iOS</a>
-              <a href="https://play.google.com/store/apps/details?id=com.happ.proxy" target="_blank" class="btn-market">🤖 Android</a>
-            </div>
-            3. Запустите <strong>Happ</strong>, он автоматически распознает ссылку подписки из буфера обмена. Подтвердите добавление и нажмите кнопку старта в центре!
+            <strong style="font-size: 13px; display: block; margin-bottom: 8px;">Рекомендуемый способ подключения:</strong>
+            <ol style="margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; line-height: 1.6;">
+              <li>Скопируйте ссылку подписки с помощью кнопки выше.</li>
+              <li>
+                Скачайте приложение <strong>Happ - Proxy Utility</strong>:
+                <div class="happ-links" style="margin-top: 8px; margin-bottom: 4px;">
+                  <a href="https://apps.apple.com/app/happ-proxy-utility/id6475730248" target="_blank" class="btn-market">🍏 Скачать для iOS</a>
+                  <a href="https://play.google.com/store/apps/details?id=com.happ.proxy" target="_blank" class="btn-market">🤖 Скачать для Android</a>
+                </div>
+              </li>
+              <li>Откройте приложение <strong>Happ</strong>, подтвердите автоматический импорт ссылки из буфера обмена и нажмите кнопку подключения в центре.</li>
+            </ol>
           </div>
         </div>
 
@@ -1072,22 +1076,22 @@ function renderSubscriptionPortal(
         <!-- 6. TELEGRAM БОТ И УВЕДОМЛЕНИЯ (Снизу) -->
         ${cleanTgBotUsername ? `
           <div class="card">
-            <h2>🤖 Telegram Бот и Контроль</h2>
+            <h2>🤖 Telegram-уведомления</h2>
             ${client.tgId ? `
               <div class="tg-status-box">
-                <strong>✅ Уведомления активны:</strong>
-                Привязан к аккаунту: <b>${client.telegramUsername ? `@${client.telegramUsername}` : `имя: ${client.telegramFirstName || 'Пользователь'}`}</b> (ID: ${client.tgId})<br/>
-                Бот присылает предупреждения об окончании трафика или лимитов подписки.
+                <strong>✅ Telegram привязан:</strong>
+                Аккаунт: <b>${client.telegramUsername ? `@${client.telegramUsername}` : `имя: ${client.telegramFirstName || 'Пользователь'}`}</b> (ID: ${client.tgId})<br/>
+                Система присылает уведомления об окончании трафика и статусе подписки.
               </div>
               <a href="?action=unbind" class="tg-unbind-btn">
-                ❌ Отвязать аккаунт Telegram
+                ❌ Отключить уведомления в Telegram
               </a>
             ` : `
               <div class="instructions-box instructions-cyan" style="margin-bottom: 16px;">
-                Подключите Telegram-бота, чтобы проверять баланс командой <b>/status</b> и мгновенно получать уведомления, когда подходит срок окончания подписки или лимитов трафика.
+                Подключите Telegram-бота для получения автоматических уведомлений об остатке трафика, дате окончания подписки и проверки статуса.
               </div>
               <a href="javascript:void(0)" onclick="openTgBot('https://t.me/${cleanTgBotUsername}?start=${client.subscriptionToken}')" class="btn-tg-bind">
-                🔗 Привязать Telegram-бота
+                🔗 Подключить Telegram-бота
               </a>
             `}
           </div>
