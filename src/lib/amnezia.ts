@@ -141,13 +141,21 @@ async function awgServerRequest<T = any>(
  */
 async function fetchPeers(server: AwgServer): Promise<any[] | null> {
   // 1. Пробуем Express API (/api/peers)
-  let peers = await awgServerRequest<any[]>(server, '/api/peers', 'GET');
-  if (Array.isArray(peers)) return peers;
+  try {
+    let peers = await awgServerRequest<any[]>(server, '/api/peers', 'GET');
+    if (Array.isArray(peers)) return peers;
+  } catch (e) {
+    console.log(`[AWG API DETECT] GET /api/peers failed on ${server.name}:`, e instanceof Error ? e.message : e);
+  }
 
   // 2. Если Express API вернул 404 или ошибку, пробуем Nuxt API (/api/wireguard/client)
-  console.log(`[AWG API DETECT] GET /api/peers failed on ${server.name}. Trying GET /api/wireguard/client...`);
-  peers = await awgServerRequest<any[]>(server, '/api/wireguard/client', 'GET');
-  if (Array.isArray(peers)) return peers;
+  console.log(`[AWG API DETECT] Trying GET /api/wireguard/client...`);
+  try {
+    let peers = await awgServerRequest<any[]>(server, '/api/wireguard/client', 'GET');
+    if (Array.isArray(peers)) return peers;
+  } catch (e) {
+    console.error(`[AWG API DETECT] GET /api/wireguard/client failed:`, e instanceof Error ? e.message : e);
+  }
 
   return null;
 }
