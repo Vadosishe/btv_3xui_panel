@@ -51,6 +51,8 @@ export default function DashboardPage() {
     totalTrafficGB: '0.00',
   });
 
+  const [serverStatus, setServerStatus] = useState<any | null>(null);
+
   // Финансовая аналитика
   const [financials, setFinancials] = useState({
     totalCosts: 0,
@@ -157,6 +159,19 @@ export default function DashboardPage() {
         if (realLogsRes.ok) {
           const logsData = await realLogsRes.json();
           setLogs(logsData.logs || []);
+        }
+
+        // Подгружаем статус сервера 3X-UI
+        try {
+          const statusRes = await fetch('/api/admin/server-status');
+          if (statusRes.ok) {
+            const statusData = await statusRes.json();
+            if (statusData.success) {
+              setServerStatus(statusData.status);
+            }
+          }
+        } catch (e) {
+          console.warn('Failed to load server status on dashboard:', e);
         }
       } catch (e) {
         console.error('Error loading dashboard data:', e);
@@ -465,6 +480,77 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* --- МОНИТОРИНГ СЕРВЕРА 3X-UI --- */}
+      {serverStatus && (
+        <div className="stats-row" style={{ marginTop: '5px' }}>
+          {/* CPU Card */}
+          <div className="stat-card glass-panel interactive-element" style={{ background: 'rgba(59, 130, 246, 0.02)', borderColor: 'rgba(59, 130, 246, 0.12)' }}>
+            <div className="stat-icon" style={{ background: 'rgba(59, 130, 246, 0.08)', color: '#60a5fa' }}>
+              <Server size={22} />
+            </div>
+            <div style={{ flexGrow: 1 }}>
+              <div className="stat-title" style={{ fontSize: '11px' }}>Загрузка CPU</div>
+              <div className="stat-val" style={{ color: '#60a5fa', fontSize: '24px' }}>
+                {serverStatus.cpu !== undefined ? `${serverStatus.cpu.toFixed(1)}%` : 'н/д'}
+              </div>
+              <div className="chart-bar-bg" style={{ height: '4px', marginTop: '6px', background: 'rgba(255,255,255,0.05)' }}>
+                <div className="chart-bar-fill" style={{ width: `${serverStatus.cpu || 0}%`, background: '#60a5fa' }} />
+              </div>
+            </div>
+          </div>
+
+          {/* RAM Card */}
+          <div className="stat-card glass-panel interactive-element" style={{ background: 'rgba(168, 85, 247, 0.02)', borderColor: 'rgba(168, 85, 247, 0.12)' }}>
+            <div className="stat-icon" style={{ background: 'rgba(168, 85, 247, 0.08)', color: '#c084fc' }}>
+              <Activity size={22} />
+            </div>
+            <div style={{ flexGrow: 1 }}>
+              <div className="stat-title" style={{ fontSize: '11px' }}>Оперативная память</div>
+              <div className="stat-val" style={{ color: '#c084fc', fontSize: '24px' }}>
+                {serverStatus.mem ? `${(serverStatus.mem.current / (1024 * 1024 * 1024)).toFixed(1)} / ${(serverStatus.mem.total / (1024 * 1024 * 1024)).toFixed(1)} GB` : 'н/д'}
+              </div>
+              <div className="chart-bar-bg" style={{ height: '4px', marginTop: '6px', background: 'rgba(255,255,255,0.05)' }}>
+                <div className="chart-bar-fill" style={{ width: `${serverStatus.mem ? Math.round((serverStatus.mem.current / serverStatus.mem.total) * 100) : 0}%`, background: '#c084fc' }} />
+              </div>
+            </div>
+          </div>
+
+          {/* Disk Card */}
+          <div className="stat-card glass-panel interactive-element" style={{ background: 'rgba(16, 185, 129, 0.02)', borderColor: 'rgba(16, 185, 129, 0.12)' }}>
+            <div className="stat-icon" style={{ background: 'rgba(16, 185, 129, 0.08)', color: '#34d399' }}>
+              <HardDrive size={22} />
+            </div>
+            <div style={{ flexGrow: 1 }}>
+              <div className="stat-title" style={{ fontSize: '11px' }}>Дисковое пространство</div>
+              <div className="stat-val" style={{ color: '#34d399', fontSize: '24px' }}>
+                {serverStatus.disk ? `${(serverStatus.disk.current / (1024 * 1024 * 1024)).toFixed(1)} / ${(serverStatus.disk.total / (1024 * 1024 * 1024)).toFixed(1)} GB` : 'н/д'}
+              </div>
+              <div className="chart-bar-bg" style={{ height: '4px', marginTop: '6px', background: 'rgba(255,255,255,0.05)' }}>
+                <div className="chart-bar-fill" style={{ width: `${serverStatus.disk ? Math.round((serverStatus.disk.current / serverStatus.disk.total) * 100) : 0}%`, background: '#34d399' }} />
+              </div>
+            </div>
+          </div>
+
+          {/* Xray / Connections Card */}
+          <div className="stat-card glass-panel interactive-element" style={{ background: 'rgba(6, 182, 212, 0.02)', borderColor: 'rgba(6, 182, 212, 0.12)' }}>
+            <div className="stat-icon" style={{ background: 'rgba(6, 182, 212, 0.08)', color: '#22d3ee' }}>
+              <Activity size={22} />
+            </div>
+            <div>
+              <div className="stat-title" style={{ fontSize: '11px' }}>Статус Xray / Подключения</div>
+              <div className="stat-val" style={{ color: '#22d3ee', fontSize: '20px', display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px' }}>
+                <span className={`pulse-indicator ${serverStatus.xray?.state !== 'running' ? 'offline' : ''}`} style={{ width: '8px', height: '8px' }} />
+                <span>{serverStatus.xray?.state === 'running' ? 'Запущен' : 'Остановлен'}</span>
+                <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>({serverStatus.xray?.version || 'v1.8.x'})</span>
+              </div>
+              <div style={{ fontSize: '10px', color: '#6b7280', marginTop: '6px' }}>
+                TCP/UDP Соединений: <strong style={{ color: '#fff' }}>{(serverStatus.tcpCount || 0) + (serverStatus.udpCount || 0)}</strong>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* --- РАЗДЕЛ АНАЛИТИКИ И АУДИТА --- */}
       <div className="layout-row">

@@ -830,3 +830,18 @@ export async function xuiDeleteGroup(name: string): Promise<boolean> {
   }
 }
 
+/**
+ * Получить статус сервера (CPU, Memory, Disk, Uptime, Xray state)
+ */
+export async function xuiGetServerStatus(): Promise<any | null> {
+  try {
+    const data = await xuiRequest('/panel/api/server/status', 'GET');
+    if (data.success && data.obj) {
+      return data.obj;
+    }
+  } catch (err: any) {
+    console.error('Failed to fetch server status from 3XUI:', err.message);
+  }
+  return null;
+}
+
