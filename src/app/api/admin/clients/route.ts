@@ -194,7 +194,7 @@ export async function POST(req: Request) {
             enable: true,
             flow: flow,
             tgId: tgId,
-            templateId: templateId,
+            group: company.name
           });
 
           if (added) {

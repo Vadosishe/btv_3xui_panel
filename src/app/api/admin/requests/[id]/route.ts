@@ -122,6 +122,7 @@ export async function PUT(
             flow,
             tgId: '',
             templateId,
+            group: company.name,
           });
 
           if (added) {

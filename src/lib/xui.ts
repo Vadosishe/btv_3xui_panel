@@ -143,15 +143,17 @@ export async function xuiAddClient(
     flow?: string;
     tgId?: string;
     templateId?: string;
+    group?: string;
   }
 ): Promise<boolean> {
   // Определение корректного flow на основе настроек инбаунда
   let finalFlow = client.flow || '';
+  let protocol = 'vless';
   try {
     const inbounds = await xuiGetInbounds();
     const inbound = inbounds.find(i => i.id === inboundId);
     if (inbound) {
-      const protocol = inbound.protocol.toLowerCase();
+      protocol = inbound.protocol.toLowerCase();
       let streamSettings: any = {};
       try {
         streamSettings = typeof inbound.streamSettings === 'string'
@@ -176,8 +178,8 @@ export async function xuiAddClient(
     console.warn(`Failed to inspect inbound ${inboundId} for flow validation:`, err);
   }
 
-  // Настройки клиента для 3XUI Merlin
-  const clientPayload = {
+  // Настройки клиента для 3XUI Merlin / 3.x API
+  const clientPayload: any = {
     id: client.id,
     email: client.email,
     subId: client.id.replace(/-/g, '').slice(0, 16), // Генерируем 16 hex символов для subId
@@ -187,8 +189,18 @@ export async function xuiAddClient(
     limitIp: client.limitIp ?? 0,
     enable: client.enable ?? true,
     flow: finalFlow,
-    comment: 'BTV Client'
+    comment: 'BTV Client',
+    group: client.group || 'BTV Clients',
+    reset: 0,
+    security: protocol === 'vmess' ? 'auto' : 'none'
   };
+
+  // Проставляем секреты для других протоколов, чтобы 3XUI не генерировал их случайно
+  if (protocol === 'trojan' || protocol === 'shadowsocks') {
+    clientPayload.password = client.id;
+  } else if (protocol === 'hysteria' || protocol === 'hysteria2' || protocol === 'hy2') {
+    clientPayload.auth = client.id;
+  }
 
   const body = {
     client: clientPayload,
@@ -282,15 +294,17 @@ export async function xuiUpdateClient(
     flow?: string;
     tgId?: string;
     templateId?: string;
+    group?: string;
   }
 ): Promise<boolean> {
   // Определение корректного flow на основе настроек инбаунда
   let finalFlow = client.flow || '';
+  let protocol = 'vless';
   try {
     const inbounds = await xuiGetInbounds();
     const inbound = inbounds.find(i => i.id === inboundId);
     if (inbound) {
-      const protocol = inbound.protocol.toLowerCase();
+      protocol = inbound.protocol.toLowerCase();
       let streamSettings: any = {};
       try {
         streamSettings = typeof inbound.streamSettings === 'string'
@@ -315,7 +329,7 @@ export async function xuiUpdateClient(
     console.warn(`Failed to inspect inbound ${inboundId} for flow validation:`, err);
   }
 
-  const clientPayload = {
+  const clientPayload: any = {
     id: client.id,
     email: client.email,
     subId: client.id.replace(/-/g, '').slice(0, 16),
@@ -325,15 +339,21 @@ export async function xuiUpdateClient(
     limitIp: client.limitIp ?? 0,
     enable: client.enable ?? true,
     flow: finalFlow,
-    comment: 'BTV Client'
+    comment: 'BTV Client',
+    group: client.group || 'BTV Clients',
+    reset: 0,
+    security: protocol === 'vmess' ? 'auto' : 'none'
   };
 
-  const body = {
-    client: clientPayload,
-    inboundIds: [inboundId],
-  };
+  // Проставляем секреты для других протоколов, чтобы 3XUI не генерировал их случайно
+  if (protocol === 'trojan' || protocol === 'shadowsocks') {
+    clientPayload.password = client.id;
+  } else if (protocol === 'hysteria' || protocol === 'hysteria2' || protocol === 'hy2') {
+    clientPayload.auth = client.id;
+  }
 
-  const data = await xuiRequest(`/panel/api/clients/update/${client.email}`, 'POST', body);
+  // В API 3.3.0 эндпоинт обновления принимает непосредственно объект Client, а не обертку {client, inboundIds}
+  const data = await xuiRequest(`/panel/api/clients/update/${client.email}`, 'POST', clientPayload);
 
   if (data.success) {
     // Синхронизируем статус клиента (вкл/выкл) во всех привязанных серверах Amnezia WG

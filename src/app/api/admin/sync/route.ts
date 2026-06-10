@@ -31,6 +31,24 @@ export async function POST() {
       }, { status: 502 });
     }
 
+    // 1.5. Строим маппинг email -> название группы на основе настроек inbounds
+    const emailToGroupMap: Record<string, string> = {};
+    for (const inbound of inbounds) {
+      let settings: any = {};
+      try {
+        settings = typeof inbound.settings === 'string'
+          ? JSON.parse(inbound.settings)
+          : inbound.settings || {};
+      } catch (e) {}
+      
+      const clients = settings.clients || [];
+      for (const client of clients) {
+        if (client.email && client.group) {
+          emailToGroupMap[client.email.toLowerCase().trim()] = client.group;
+        }
+      }
+    }
+
     // 2. Группируем статистику клиентов по уникальному email
     const clientStatsGrouped: Record<string, {
       email: string;
@@ -41,6 +59,7 @@ export async function POST() {
       total: number;
       enable: boolean;
       inboundIds: number[];
+      group?: string;
     }> = {};
 
     for (const inbound of inbounds) {
@@ -61,6 +80,7 @@ export async function POST() {
             total: stat.total || 0,
             enable: stat.enable !== false,
             inboundIds: [],
+            group: emailToGroupMap[emailKey] || '',
           };
         }
 
@@ -131,6 +151,30 @@ export async function POST() {
             updateData.name = xuiClient.email;
           }
 
+          // Если клиент находится в технической компании импорта, но в 3XUI ему задана группа,
+          // переносим его в соответствующую компанию (автоматически создавая её при необходимости)
+          const xuiGroupName = xuiClient.group ? xuiClient.group.trim() : '';
+          if (
+            dbClient.companyId === defaultCompanyId && 
+            xuiGroupName && 
+            xuiGroupName !== 'BTV Clients' && 
+            xuiGroupName !== 'Импортированные (3XUI)'
+          ) {
+            let groupCompany = await prisma.company.findUnique({
+              where: { name: xuiGroupName }
+            });
+            if (!groupCompany) {
+              groupCompany = await prisma.company.create({
+                data: {
+                  name: xuiGroupName,
+                  description: `Автоматически созданная компания на основе группы 3XUI "${xuiGroupName}"`,
+                  isActive: true
+                }
+              });
+            }
+            updateData.companyId = groupCompany.id;
+          }
+
           // Синхронизируем срок действия и лимит трафика только если они не переопределены индивидуально
           if (dbClient.expiresAt === null && xuiClient.expiryTime > 0) {
             updateData.expiresAt = new Date(xuiClient.expiryTime);
@@ -151,6 +195,30 @@ export async function POST() {
       } else {
         // --- АВТОИМПОРТ НОВОГО КЛИЕНТА ---
         try {
+          // Определяем компанию на основе группы из 3XUI (создавая компанию если не существует)
+          let clientCompanyId = defaultCompanyId;
+          const xuiGroupName = xuiClient.group ? xuiClient.group.trim() : '';
+          
+          if (
+            xuiGroupName && 
+            xuiGroupName !== 'BTV Clients' && 
+            xuiGroupName !== 'Импортированные (3XUI)'
+          ) {
+            let groupCompany = await prisma.company.findUnique({
+              where: { name: xuiGroupName }
+            });
+            if (!groupCompany) {
+              groupCompany = await prisma.company.create({
+                data: {
+                  name: xuiGroupName,
+                  description: `Автоматически созданная компания на основе группы 3XUI "${xuiGroupName}"`,
+                  isActive: true
+                }
+              });
+            }
+            clientCompanyId = groupCompany.id;
+          }
+
           // Обеспечиваем наличие технического шаблона для импорта
           if (!defaultTemplateId) {
             let template = await prisma.template.findUnique({
@@ -184,7 +252,7 @@ export async function POST() {
               usedTrafficBytes: totalUsedBytes,
               trafficLimitGB: xuiClient.total > 0 ? Math.round(xuiClient.total / (1024 * 1024 * 1024)) : null,
               expiresAt: xuiClient.expiryTime > 0 ? new Date(xuiClient.expiryTime) : null,
-              companyId: defaultCompanyId,
+              companyId: clientCompanyId,
               templateId: defaultTemplateId,
               lastSyncedAt: new Date(),
             },

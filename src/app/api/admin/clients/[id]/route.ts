@@ -197,6 +197,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
             flow: flow,
             tgId: tgId,
             templateId: targetTemplateId,
+            group: company.name,
           });
 
           if (added) {
