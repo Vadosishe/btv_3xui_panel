@@ -260,17 +260,24 @@ export async function xuiDeleteClient(inboundId: number, clientUuidOrEmail: stri
         where: {
           OR: [
             { vpnUuid: clientUuidOrEmail },
-            { id: clientUuidOrEmail }
+            { id: clientUuidOrEmail },
+            { email: clientUuidOrEmail }
           ]
         }
       });
       if (dbClient) {
         email = dbClient.email;
       } else {
-        email = `client_${clientUuidOrEmail.replace(/-/g, '').slice(0, 8)}@btv.vpn`;
+        const isUuidOrId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(clientUuidOrEmail) || clientUuidOrEmail.length >= 24;
+        if (isUuidOrId) {
+          email = `client_${clientUuidOrEmail.replace(/-/g, '').slice(0, 8)}@btv.vpn`;
+        }
       }
     } catch (dbErr) {
-      email = `client_${clientUuidOrEmail.replace(/-/g, '').slice(0, 8)}@btv.vpn`;
+      const isUuidOrId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(clientUuidOrEmail) || clientUuidOrEmail.length >= 24;
+      if (isUuidOrId) {
+        email = `client_${clientUuidOrEmail.replace(/-/g, '').slice(0, 8)}@btv.vpn`;
+      }
     }
   }
 

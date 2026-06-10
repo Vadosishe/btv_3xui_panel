@@ -655,26 +655,38 @@ export async function POST(req: NextRequest) {
         for (const targetInboundId of targetInboundIds) {
           diagLogs.push(`Processing Inbound ID ${targetInboundId}`);
           try {
-            const deleted = await xuiDeleteClient(targetInboundId, client.email);
-            diagLogs.push(`Delete result: ${deleted}`);
+            const delRes = await xuiRequest(`/panel/api/inbounds/${targetInboundId}/delClientByEmail/${client.email}`, 'POST');
+            diagLogs.push(`Delete By Email: ${JSON.stringify(delRes)}`);
           } catch (e: any) {
-            diagLogs.push(`Delete error: ${e.message}`);
+            diagLogs.push(`Delete By Email error: ${e.message}`);
           }
 
           try {
-            const added = await xuiAddClient(targetInboundId, {
-              id: client.vpnUuid,
-              email: client.email,
-              limitIp,
-              totalGB: Number(trafficBytesLimit),
-              expiryTime: expiryTimeMs,
-              enable: true,
-              flow,
-              tgId: client.tgId || '',
-              templateId: template.id,
-              group: client.company.name,
+            const delUuidRes = await xuiRequest(`/panel/api/inbounds/${targetInboundId}/delClient/${client.vpnUuid}`, 'POST');
+            diagLogs.push(`Delete By Uuid: ${JSON.stringify(delUuidRes)}`);
+          } catch (e: any) {
+            diagLogs.push(`Delete By Uuid error: ${e.message}`);
+          }
+
+          try {
+            const added = await xuiRequest('/panel/api/clients/add', 'POST', {
+              client: {
+                id: client.vpnUuid,
+                email: client.email,
+                subId: client.vpnUuid.replace(/-/g, '').slice(0, 16),
+                totalGB: Number(trafficBytesLimit),
+                expiryTime: expiryTimeMs,
+                limitIp,
+                enable: true,
+                flow,
+                comment: 'BTV Client',
+                group: client.company.name,
+                reset: 0,
+                security: 'none'
+              },
+              inboundIds: [targetInboundId],
             });
-            diagLogs.push(`Add result: ${added}`);
+            diagLogs.push(`Add: ${JSON.stringify(added)}`);
           } catch (err: any) {
             diagLogs.push(`Add failed: ${err.message}`);
           }
