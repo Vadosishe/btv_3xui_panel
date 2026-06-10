@@ -93,8 +93,8 @@ export class ClientService {
         } catch (e) {}
         const clientsArray = settings.clients || [];
         const hasSettingsMatch = clientsArray.some((c: any) =>
-          (c.email && c.email.toLowerCase().trim() === clientEmailLower) ||
-          (c.id && c.id.toLowerCase().trim() === clientUuidLower)
+          (c.email && typeof c.email === 'string' && c.email.toLowerCase().trim() === clientEmailLower) ||
+          (c.id && typeof c.id === 'string' && c.id.toLowerCase().trim() === clientUuidLower)
         );
 
         if (hasSettingsMatch) {
@@ -104,9 +104,9 @@ export class ClientService {
 
         const statsArray = inbound.clientStats || [];
         const hasStatsMatch = statsArray.some((s: any) =>
-          (s.email && s.email.toLowerCase().trim() === clientEmailLower) ||
-          (s.uuid && s.uuid.toLowerCase().trim() === clientUuidLower) ||
-          (s.id && s.id.toLowerCase().trim() === clientUuidLower)
+          (s.email && typeof s.email === 'string' && s.email.toLowerCase().trim() === clientEmailLower) ||
+          (s.uuid && typeof s.uuid === 'string' && s.uuid.toLowerCase().trim() === clientUuidLower) ||
+          (s.id && typeof s.id === 'string' && s.id.toLowerCase().trim() === clientUuidLower)
         );
 
         if (hasStatsMatch) {
