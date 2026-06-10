@@ -1,7 +1,7 @@
 import { NextResponse, NextRequest } from 'next/server';
 import prisma from '@/lib/prisma';
 import { getSession } from '@/lib/auth';
-import { xuiGetInbounds, xuiClearCache, getXuiConfig, xuiRequest } from '@/lib/xui';
+import { xuiGetInbounds, xuiClearCache, getXuiConfig, xuiRequest, xuiAddClient, xuiDeleteClient } from '@/lib/xui';
 import crypto from 'crypto';
 
 // Recursive BigInt serialization helper to prevent JSON.stringify errors
@@ -622,6 +622,66 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ success: true, count: list.length, clients: list });
       } catch (err: any) {
         return NextResponse.json({ success: false, error: err.message, stack: err.stack });
+      }
+    }
+
+    // --- Action: debug_rebind ---
+    if (action === 'debug_rebind') {
+      try {
+        const diagLogs: string[] = [];
+        const templateId = '4094bdc2-6d77-468e-b2ae-cd4a5e5124de';
+        const template = await prisma.template.findUnique({ where: { id: templateId } });
+        if (!template) return NextResponse.json({ success: false, error: 'Template not found' });
+        const targetInboundIds = JSON.parse(template.inboundIdsJson || '[]');
+        
+        const client = await prisma.client.findFirst({
+          where: { templateId, isActive: true, email: 'VladS' },
+          include: { company: true }
+        });
+        if (!client) return NextResponse.json({ success: false, error: 'Client VladS not found' });
+        
+        diagLogs.push(`Testing rebind for client: ${client.email}`);
+        diagLogs.push(`Target inbounds: ${targetInboundIds.join(', ')}`);
+
+        const trafficLimitGB = client.trafficLimitGB !== null ? client.trafficLimitGB : template.trafficLimitGB;
+        const trafficBytesLimit = trafficLimitGB > 0
+          ? BigInt(trafficLimitGB) * BigInt(1024 * 1024 * 1024)
+          : BigInt(0);
+        const limitIp = client.limitIp !== null ? client.limitIp : template.limitIp;
+        const expiresAt = client.expiresAt;
+        const expiryTimeMs = expiresAt ? expiresAt.getTime() : 0;
+        const flow = client.flow !== null ? client.flow : (template.flow || '');
+
+        for (const targetInboundId of targetInboundIds) {
+          diagLogs.push(`Processing Inbound ID ${targetInboundId}`);
+          try {
+            const deleted = await xuiDeleteClient(targetInboundId, client.email);
+            diagLogs.push(`Delete result: ${deleted}`);
+          } catch (e: any) {
+            diagLogs.push(`Delete error: ${e.message}`);
+          }
+
+          try {
+            const added = await xuiAddClient(targetInboundId, {
+              id: client.vpnUuid,
+              email: client.email,
+              limitIp,
+              totalGB: Number(trafficBytesLimit),
+              expiryTime: expiryTimeMs,
+              enable: true,
+              flow,
+              tgId: client.tgId || '',
+              templateId: template.id,
+              group: client.company.name,
+            });
+            diagLogs.push(`Add result: ${added}`);
+          } catch (err: any) {
+            diagLogs.push(`Add failed: ${err.message}`);
+          }
+        }
+        return NextResponse.json({ success: true, logs: diagLogs });
+      } catch (err: any) {
+        return NextResponse.json({ success: false, error: err.message });
       }
     }
 
