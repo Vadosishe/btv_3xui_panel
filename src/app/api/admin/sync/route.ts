@@ -110,7 +110,7 @@ export async function POST() {
         if (!clientStatsGrouped[emailKey]) {
           clientStatsGrouped[emailKey] = {
             email: stat.email,
-            uuid: stat.uuid || stat.id || '',
+            uuid: (stat.uuid && typeof stat.uuid === 'string') ? stat.uuid : '',
             up: 0,
             down: 0,
             expiryTime: stat.expiryTime || 0,
