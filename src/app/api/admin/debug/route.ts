@@ -574,6 +574,46 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // --- Action: diagnostic_dump ---
+    if (action === 'diagnostic_dump') {
+      try {
+        const clients = await prisma.client.findMany();
+        const companies = await prisma.company.findMany();
+        const templates = await prisma.template.findMany();
+        const vpnRequests = await prisma.vpnRequest.findMany();
+        const settings = await prisma.appSetting.findMany();
+        const logs = await prisma.auditLog.findMany({ take: 150, orderBy: { createdAt: 'desc' } });
+        
+        let inbounds: any[] = [];
+        let xuiError = '';
+        try {
+          xuiClearCache();
+          inbounds = await xuiGetInbounds();
+        } catch (err: any) {
+          xuiError = err.message;
+        }
+        
+        return NextResponse.json({
+          success: true,
+          timestamp: new Date().toISOString(),
+          database: serializeBigInt({
+            clients,
+            companies,
+            templates,
+            vpnRequests,
+            settings,
+            logs
+          }),
+          xui: {
+            inbounds,
+            error: xuiError
+          }
+        });
+      } catch (err: any) {
+        return NextResponse.json({ success: false, error: `Failed to compile diagnostic dump: ${err.message}` });
+      }
+    }
+
     return NextResponse.json({ success: false, error: `Неизвестное действие: ${action}` }, { status: 400 });
 
   } catch (error: any) {

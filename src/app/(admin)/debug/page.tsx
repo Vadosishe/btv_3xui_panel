@@ -17,7 +17,8 @@ import {
   ChevronDown,
   ChevronRight,
   Shield,
-  Activity
+  Activity,
+  Download
 } from 'lucide-react';
 
 export default function DebugPage() {
@@ -118,6 +119,38 @@ export default function DebugPage() {
       }
     } catch (e) {
       console.error('Failed to load API key', e);
+    }
+  };
+
+  const [isDownloadingDump, setIsDownloadingDump] = useState(false);
+
+  const downloadDiagnosticDump = async () => {
+    if (isDownloadingDump) return;
+    setIsDownloadingDump(true);
+    try {
+      const res = await fetch('/api/admin/debug', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'diagnostic_dump' })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const jsonString = `data:text/json;charset=utf-8,${encodeURIComponent(
+          JSON.stringify(data, null, 2)
+        )}`;
+        const downloadAnchor = document.createElement('a');
+        downloadAnchor.setAttribute('href', jsonString);
+        downloadAnchor.setAttribute('download', `vpn_panel_diag_dump_${new Date().toISOString().slice(0, 10)}.json`);
+        document.body.appendChild(downloadAnchor);
+        downloadAnchor.click();
+        downloadAnchor.remove();
+      } else {
+        alert('Не удалось собрать отладочный дамп');
+      }
+    } catch (e: any) {
+      alert(`Ошибка скачивания дампа: ${e.message}`);
+    } finally {
+      setIsDownloadingDump(false);
     }
   };
 
@@ -714,10 +747,36 @@ export default function DebugPage() {
                   {isCopied ? <CheckCircle size={15} style={{ color: '#10b981' }} /> : <Copy size={15} />}
                 </button>
               </div>
+
+              {/* Кнопка скачивания диагностического дампа */}
+              <button
+                onClick={downloadDiagnosticDump}
+                disabled={isDownloadingDump}
+                style={{
+                  marginTop: '10px',
+                  background: 'rgba(6, 182, 212, 0.1)',
+                  border: '1px solid rgba(6, 182, 212, 0.25)',
+                  borderRadius: '8px',
+                  padding: '8px 12px',
+                  color: '#06b6d4',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  cursor: isDownloadingDump ? 'not-allowed' : 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  width: '100%',
+                  transition: 'all 0.2s'
+                }}
+              >
+                <Download size={14} className={isDownloadingDump ? 'spinner' : ''} style={{ animation: isDownloadingDump ? 'spin 1s linear infinite' : 'none' }} />
+                <span>{isDownloadingDump ? 'Сбор дампа...' : 'Скачать отладочный дамп (JSON)'}</span>
+              </button>
             </div>
           </div>
           <div className="code-snippet">
-            <span>curl -H "x-api-key: {apiKey ? (showApiKey ? apiKey : '•••') : 'API_KEY'}" -X POST -d '&#123;"action":"db_inspect"&#125;' /api/admin/debug</span>
+            <span>curl -H "x-api-key: {apiKey ? (showApiKey ? apiKey : '•••') : 'API_KEY'}" -X POST -d '&#123;"action":"diagnostic_dump"&#125;' /api/admin/debug</span>
           </div>
         </div>
       </div>
