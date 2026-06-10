@@ -614,6 +614,17 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // --- Action: test_clients_list ---
+    if (action === 'test_clients_list') {
+      try {
+        const { ClientService } = await import('@/lib/services/client-service');
+        const list = await ClientService.getClientsList();
+        return NextResponse.json({ success: true, count: list.length, clients: list });
+      } catch (err: any) {
+        return NextResponse.json({ success: false, error: err.message, stack: err.stack });
+      }
+    }
+
     return NextResponse.json({ success: false, error: `Неизвестное действие: ${action}` }, { status: 400 });
 
   } catch (error: any) {
