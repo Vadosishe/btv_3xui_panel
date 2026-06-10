@@ -136,7 +136,7 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
       try {
         const inboundIds: number[] = JSON.parse(client.template.inboundIdsJson || '[]');
         for (const inboundId of inboundIds) {
-          await xuiDeleteClient(inboundId, client.vpnUuid);
+          await xuiDeleteClient(inboundId, client.email);
         }
       } catch (xuiErr: any) {
         console.error(`Failed to delete client ${client.email} from 3XUI during company deletion:`, xuiErr.message);

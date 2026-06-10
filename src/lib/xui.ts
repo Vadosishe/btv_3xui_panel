@@ -252,14 +252,76 @@ export function getCleanLatinName(name: string): string {
 /**
  * Удалить клиента из входящего подключения
  */
-export async function xuiDeleteClient(inboundId: number, clientUuid: string): Promise<boolean> {
-  const email = clientUuid.includes('@')
-    ? clientUuid
-    : `client_${clientUuid.slice(0, 8)}@btv.vpn`;
+export async function xuiDeleteClient(inboundId: number, clientUuidOrEmail: string): Promise<boolean> {
+  let email = clientUuidOrEmail;
+  if (!email.includes('@')) {
+    try {
+      const dbClient = await prisma.client.findFirst({
+        where: {
+          OR: [
+            { vpnUuid: clientUuidOrEmail },
+            { id: clientUuidOrEmail }
+          ]
+        }
+      });
+      if (dbClient) {
+        email = dbClient.email;
+      } else {
+        email = `client_${clientUuidOrEmail.replace(/-/g, '').slice(0, 8)}@btv.vpn`;
+      }
+    } catch (dbErr) {
+      email = `client_${clientUuidOrEmail.replace(/-/g, '').slice(0, 8)}@btv.vpn`;
+    }
+  }
 
-  const data = await xuiRequest(`/panel/api/clients/del/${email}`, 'POST');
+  // Сначала пробуем стандартный для v3.3.0 метод: удаление по email через inbound
+  let data: any = null;
+  try {
+    data = await xuiRequest(`/panel/api/inbounds/${inboundId}/delClientByEmail/${email}`, 'POST');
+  } catch (err: any) {
+    console.warn(`Failed to delete client by email ${email} from inbound ${inboundId}:`, err.message);
+  }
 
-  if (data.success) {
+  // Если не получилось — пробуем удалить по UUID
+  if (!data || !data.success) {
+    let uuid = clientUuidOrEmail;
+    if (uuid.includes('@')) {
+      try {
+        const dbClient = await prisma.client.findUnique({ where: { email: uuid } });
+        if (dbClient) {
+          uuid = dbClient.vpnUuid;
+        } else {
+          uuid = uuid.split('@')[0].replace('client_', '');
+        }
+      } catch (dbErr) {
+        uuid = uuid.split('@')[0].replace('client_', '');
+      }
+    }
+    try {
+      const fallbackData = await xuiRequest(`/panel/api/inbounds/${inboundId}/delClient/${uuid}`, 'POST');
+      if (fallbackData && fallbackData.success) {
+        data = fallbackData;
+      }
+    } catch (err: any) {
+      console.warn(`Failed fallback delete client by UUID ${uuid} from inbound ${inboundId}:`, err.message);
+    }
+  }
+
+  // Если оба метода в inbound не сработали, пробуем глобальный /panel/api/clients/del/${email}
+  if (!data || !data.success) {
+    try {
+      const globalData = await xuiRequest(`/panel/api/clients/del/${email}`, 'POST');
+      if (globalData && globalData.success) {
+        data = globalData;
+      }
+    } catch (err: any) {
+      console.warn(`Failed global client delete for ${email}:`, err.message);
+    }
+  }
+
+  const success = !!(data && data.success);
+
+  if (success) {
     // Удаляем клиента из всех привязанных серверов Amnezia WG
     try {
       const { amneziaSyncClient, getAwgServers, amneziaDeletePeerOnServer } = await import('./amnezia');
@@ -275,7 +337,7 @@ export async function xuiDeleteClient(inboundId: number, clientUuid: string): Pr
     }
   }
 
-  return !!data.success;
+  return success;
 }
 
 /**
