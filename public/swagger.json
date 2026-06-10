@@ -1,0 +1,466 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "BTV VPN Panel REST API",
+    "description": "Полноценный программный REST API для управления VPN-панелью B2B, синхронизации трафика, ведения логов, CRUD-операций и интерактивной диагностики.\n\nВсе приватные эндпоинты защищены с помощью API-ключа, передаваемого в заголовке `x-api-key`, `Authorization: Bearer <key>` или в GET-параметре `?key=<key>`.",
+    "version": "1.3.4"
+  },
+  "servers": [
+    {
+      "url": "/",
+      "description": "Текущий сервер панели"
+    }
+  ],
+  "security": [
+    {
+      "ApiKeyAuth": []
+    }
+  ],
+  "paths": {
+    "/api/admin/sync": {
+      "post": {
+        "tags": ["Синхронизация"],
+        "summary": "Запустить синхронизацию трафика и импорт клиентов",
+        "description": "Запускает фоновый опрос 3XUI, сопоставляет инбаунды, обновляет трафик сотрудников в Postgres, деактивирует удаленных клиентов и импортирует новых.",
+        "responses": {
+          "200": {
+            "description": "Синхронизация завершена успешно",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "message": { "type": "string" },
+                    "syncCount": { "type": "integer" },
+                    "importCount": { "type": "integer" },
+                    "deactivateCount": { "type": "integer" },
+                    "failedCount": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "description": "Не авторизован" }
+        }
+      }
+    },
+    "/api/admin/debug": {
+      "post": {
+        "tags": ["Диагностика"],
+        "summary": "Выполнить диагностическое действие",
+        "description": "Универсальный эндпоинт отладки для разработчиков и AI-агентов. Позволяет опрашивать сырое API 3XUI, просматривать таблицы Postgres и запускать логгер синхронизации.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["action"],
+                "properties": {
+                  "action": {
+                    "type": "string",
+                    "enum": ["xui_status", "xui_inspect", "xui_client_stats", "test_xui_login", "db_inspect", "db_query", "system_logs", "run_sync", "get_api_key"],
+                    "description": "Название выполняемой диагностической операции"
+                  },
+                  "email": { "type": "string", "description": "Email клиента для xui_client_stats" },
+                  "table": { "type": "string", "description": "Таблица БД для db_query (client, company, template, vpnRequest, auditLog и др.)" },
+                  "where": { "type": "object", "description": "Фильтр JSON для db_query" },
+                  "take": { "type": "integer", "description": "Лимит выборки для db_query" },
+                  "skip": { "type": "integer", "description": "Пропуск строк для db_query" },
+                  "limit": { "type": "integer", "description": "Лимит строк для system_logs" }
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": { "description": "Результат выполнения операции" },
+            "401": { "description": "Не авторизован" }
+          }
+        }
+      }
+    },
+    "/api/admin/clients": {
+      "get": {
+        "tags": ["Клиенты (Сотрудники)"],
+        "summary": "Получить список клиентов",
+        "description": "Возвращает список всех сотрудников с информацией об их компании, тарифе, лимитах и текущем использованном VPN-трафике.",
+        "responses": {
+          "200": { "description": "Список клиентов загружен" },
+          "401": { "description": "Не авторизован" }
+        }
+      },
+      "post": {
+        "tags": ["Клиенты (Сотрудники)"],
+        "summary": "Создать новых клиентов (в БД и на 3XUI нодах)",
+        "description": "Принимает массив сотрудников и создает их с привязкой к компании и шаблону тарифа, генерируя Xray-клиентов на 3XUI и создавая туннели Amnezia WG при необходимости.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["companyId", "templateId", "clients"],
+                "properties": {
+                  "companyId": { "type": "string", "format": "uuid" },
+                  "templateId": { "type": "string", "format": "uuid" },
+                  "clients": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": ["name", "email"],
+                      "properties": {
+                        "name": { "type": "string" },
+                        "email": { "type": "string" },
+                        "vpnUuid": { "type": "string", "format": "uuid" },
+                        "trafficLimitGB": { "type": "integer", "nullable": true },
+                        "limitIp": { "type": "integer", "nullable": true },
+                        "expiresAt": { "type": "string", "format": "date-time", "nullable": true },
+                        "flow": { "type": "string", "nullable": true },
+                        "tgId": { "type": "string", "nullable": true },
+                        "telegramUsername": { "type": "string", "nullable": true }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": { "description": "Сотрудники успешно созданы" },
+            "400": { "description": "Неверный формат запроса" },
+            "401": { "description": "Не авторизован" }
+          }
+        }
+      }
+    },
+    "/api/admin/clients/{id}": {
+      "get": {
+        "tags": ["Клиенты (Сотрудники)"],
+        "summary": "Получить детализацию клиента",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": {
+          "200": { "description": "Информация о клиенте" },
+          "404": { "description": "Клиент не найден" }
+        }
+      },
+      "put": {
+        "tags": ["Клиенты (Сотрудники)"],
+        "summary": "Обновить настройки клиента",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string" },
+                  "isActive": { "type": "boolean" },
+                  "trafficLimitGB": { "type": "integer", "nullable": true },
+                  "limitIp": { "type": "integer", "nullable": true },
+                  "expiresAt": { "type": "string", "format": "date-time", "nullable": true },
+                  "flow": { "type": "string", "nullable": true },
+                  "tgId": { "type": "string", "nullable": true },
+                  "telegramUsername": { "type": "string", "nullable": true }
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": { "description": "Параметры клиента сохранены" }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["Клиенты (Сотрудники)"],
+        "summary": "Удалить клиента",
+        "description": "Удаляет клиента из базы данных PostgreSQL, стирает его учетную запись из 3XUI нод и очищает пиры из серверов Amnezia WG.",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": {
+          "200": { "description": "Клиент удален" }
+        }
+      }
+    },
+    "/api/admin/companies": {
+      "get": {
+        "tags": ["Компании (Группы)"],
+        "summary": "Получить список компаний",
+        "responses": {
+          "200": { "description": "Список компаний" }
+        }
+      },
+      "post": {
+        "tags": ["Компании (Группы)"],
+        "summary": "Создать новую B2B-компанию",
+        "description": "Создает компанию в БД и автоматически синхронизирует её создание в качестве Группы на сервере 3XUI.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name"],
+                "properties": {
+                  "name": { "type": "string", "description": "Уникальное название компании" },
+                  "description": { "type": "string" },
+                  "isActive": { "type": "boolean" }
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": { "description": "Компания создана" }
+          }
+        }
+      }
+    },
+    "/api/admin/companies/{id}": {
+      "get": {
+        "tags": ["Компании (Группы)"],
+        "summary": "Детализация компании и список её сотрудников",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": {
+          "200": { "description": "Данные компании и массив её клиентов" }
+        }
+      },
+      "put": {
+        "tags": ["Компании (Группы)"],
+        "summary": "Редактировать компанию",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string" },
+                  "description": { "type": "string" },
+                  "isActive": { "type": "boolean" }
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": { "description": "Компания успешно изменена" }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["Компании (Группы)"],
+        "summary": "Удалить компанию (каскадно)",
+        "description": "Удаляет компанию, а также каскадно стирает всех её сотрудников из Postgres, 3XUI и Amnezia WG.",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": {
+          "200": { "description": "Компания и её клиенты удалены" }
+        }
+      }
+    },
+    "/api/admin/templates": {
+      "get": {
+        "tags": ["Шаблоны (Тарифы)"],
+        "summary": "Список шаблонов VPN-подключений",
+        "responses": {
+          "200": { "description": "Список шаблонов" }
+        }
+      },
+      "post": {
+        "tags": ["Шаблоны (Тарифы)"],
+        "summary": "Создать новый тарифный шаблон",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name", "inboundIds"],
+                "properties": {
+                  "name": { "type": "string" },
+                  "description": { "type": "string" },
+                  "inboundIds": { "type": "array", "items": { "type": "integer" } },
+                  "trafficLimitGB": { "type": "integer" },
+                  "limitIp": { "type": "integer" },
+                  "durationDays": { "type": "integer" },
+                  "flow": { "type": "string" },
+                  "amneziaServers": { "type": "array", "items": { "type": "string" }, "description": "Массив ID серверов Amnezia WG" }
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": { "description": "Шаблон создан" }
+          }
+        }
+      }
+    },
+    "/api/admin/templates/{id}": {
+      "get": {
+        "tags": ["Шаблоны (Тарифы)"],
+        "summary": "Детализация шаблона",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": {
+          "200": { "description": "Информация о тарифе" }
+        }
+      },
+      "put": {
+        "tags": ["Шаблоны (Тарифы)"],
+        "summary": "Обновить шаблон тарифа",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string" },
+                  "description": { "type": "string" },
+                  "inboundIds": { "type": "array", "items": { "type": "integer" } },
+                  "trafficLimitGB": { "type": "integer" },
+                  "limitIp": { "type": "integer" },
+                  "durationDays": { "type": "integer" },
+                  "flow": { "type": "string" },
+                  "amneziaServers": { "type": "array", "items": { "type": "string" } }
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": { "description": "Изменения сохранены" }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["Шаблоны (Тарифы)"],
+        "summary": "Удалить шаблон тарифа",
+        "description": "Удаляет шаблон из базы данных при условии, что к нему не привязан ни один активный сотрудник.",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": {
+          "200": { "description": "Шаблон удален" },
+          "400": { "description": "Удаление невозможно, шаблон используется" }
+        }
+      }
+    },
+    "/api/admin/requests": {
+      "get": {
+        "tags": ["Заявки"],
+        "summary": "Список поданных заявок на VPN",
+        "responses": {
+          "200": { "description": "Список заявок" }
+        }
+      }
+    },
+    "/api/admin/requests/{id}": {
+      "put": {
+        "tags": ["Заявки"],
+        "summary": "Одобрить или отклонить заявку",
+        "description": "При одобрении заявки (`status: \"APPROVED\"`) автоматически создается карточка клиента, генерируются ключи в 3XUI, и отправляется Telegram-уведомление.",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["status"],
+                "properties": {
+                  "status": { "type": "string", "enum": ["APPROVED", "REJECTED"] },
+                  "companyId": { "type": "string", "format": "uuid", "description": "Требуется при одобрении" },
+                  "templateId": { "type": "string", "format": "uuid", "description": "Требуется при одобрении" }
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": { "description": "Заявка успешно обработана" }
+          }
+        }
+      }
+    },
+    "/api/admin/settings": {
+      "get": {
+        "tags": ["Настройки"],
+        "summary": "Получить текущие настройки панели",
+        "responses": {
+          "200": { "description": "Параметры 3XUI, Telegram-уведомлений, Amnezia WG и цен" }
+        }
+      },
+      "post": {
+        "tags": ["Настройки"],
+        "summary": "Сохранить новые настройки панели",
+        "responses": {
+          "200": { "description": "Настройки успешно сохранены" }
+        }
+      }
+    },
+    "/api/admin/logs": {
+      "get": {
+        "tags": ["Логи аудита"],
+        "summary": "Получить список логов аудита",
+        "parameters": [
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 200 } }
+        ],
+        "responses": {
+          "200": { "description": "Массив записей лога событий" }
+        }
+      },
+      "delete": {
+        "tags": ["Логи аудита"],
+        "summary": "Очистить логи аудита",
+        "parameters": [
+          { "name": "days", "in": "query", "schema": { "type": "integer" }, "description": "Очистить логи старше X дней (если не указано, удаляются все логи)" }
+        ],
+        "responses": {
+          "200": { "description": "Логи удалены" }
+        }
+      }
+    },
+    "/api/admin/backup": {
+      "get": {
+        "tags": ["Резервное копирование"],
+        "summary": "Скачать резервную копию базы данных",
+        "responses": {
+          "200": { "description": "Файл резервной копии (.json)" }
+        }
+      },
+      "post": {
+        "tags": ["Резервное копирование"],
+        "summary": "Восстановить базу данных из резервной копии",
+        "responses": {
+          "200": { "description": "База данных успешно импортирована" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "ApiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "x-api-key",
+        "description": "Введите ваш API-ключ диагностики (можно получить в UI панели в разделе Диагностика)."
+      }
+    }
+  }
+}
