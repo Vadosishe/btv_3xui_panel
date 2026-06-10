@@ -47,15 +47,54 @@ export async function GET() {
         templateInboundIds = JSON.parse(client.template.inboundIdsJson || '[]');
       } catch (e) {}
 
-      const nodeNames = templateInboundIds
+      const clientEmailLower = client.email.toLowerCase().trim();
+      const clientUuidLower = client.vpnUuid.toLowerCase().trim();
+      const actualInboundIds: number[] = [];
+
+      for (const inbound of inbounds) {
+        // 1. Проверяем settings.clients на совпадение по email или uuid
+        let settings: any = {};
+        try {
+          settings = typeof inbound.settings === 'string'
+            ? JSON.parse(inbound.settings)
+            : inbound.settings || {};
+        } catch (e) {}
+        const clientsArray = settings.clients || [];
+        const hasSettingsMatch = clientsArray.some((c: any) =>
+          (c.email && c.email.toLowerCase().trim() === clientEmailLower) ||
+          (c.id && c.id.toLowerCase().trim() === clientUuidLower)
+        );
+
+        if (hasSettingsMatch) {
+          actualInboundIds.push(inbound.id);
+          continue;
+        }
+
+        // 2. Проверяем также clientStats на совпадение по email или uuid/id
+        const statsArray = inbound.clientStats || [];
+        const hasStatsMatch = statsArray.some((s: any) =>
+          (s.email && s.email.toLowerCase().trim() === clientEmailLower) ||
+          (s.uuid && s.uuid.toLowerCase().trim() === clientUuidLower) ||
+          (s.id && s.id.toLowerCase().trim() === clientUuidLower)
+        );
+
+        if (hasStatsMatch) {
+          actualInboundIds.push(inbound.id);
+        }
+      }
+
+      // Используем найденные фактические инбаунды, если они есть, иначе берем из шаблона
+      const finalInboundIds = actualInboundIds.length > 0 ? actualInboundIds : templateInboundIds;
+
+      const nodeNames = finalInboundIds
         .map(id => inboundMap.get(id))
         .filter(Boolean) as string[];
 
       return {
         ...client,
         usedTrafficBytes: client.usedTrafficBytes.toString(),
-        isOnline: onlineEmailsLower.includes(client.email.toLowerCase().trim()) || 
-                  onlineEmailsLower.includes(client.vpnUuid.toLowerCase().trim()),
+        isOnline: onlineEmailsLower.includes(clientEmailLower) || 
+                  onlineEmailsLower.includes(clientUuidLower),
         nodes: nodeNames,
       };
     });
