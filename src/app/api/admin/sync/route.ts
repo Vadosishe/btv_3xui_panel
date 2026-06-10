@@ -140,9 +140,30 @@ export async function POST() {
       }
     }
 
-    // 3. Получаем всех клиентов из БД
+    // 3. Получаем всех клиентов и компании из БД
     const dbClients = await prisma.client.findMany();
+    const dbCompanies = await prisma.company.findMany();
+    
     const dbClientsMap = new Map(dbClients.map(c => [c.email.toLowerCase().trim(), c]));
+    const dbClientsByUuidMap = new Map(dbClients.map(c => [c.vpnUuid.toLowerCase().trim(), c]));
+
+    // Функция поиска компании по домену почты
+    const getCompanyByEmailDomain = (email: string) => {
+      if (!email || !email.includes('@')) return null;
+      const domain = email.split('@')[1].toLowerCase().trim();
+      for (const comp of dbCompanies) {
+        if (!comp.emailDomains) continue;
+        const domains = comp.emailDomains
+          .toLowerCase()
+          .split(',')
+          .map(d => d.trim())
+          .filter(Boolean);
+        if (domains.includes(domain)) {
+          return comp;
+        }
+      }
+      return null;
+    };
 
     let syncCount = 0;
     let importCount = 0;
@@ -167,7 +188,12 @@ export async function POST() {
 
     // 4. Проходим по всем клиентам из 3XUI
     for (const [emailKey, xuiClient] of Object.entries(clientStatsGrouped)) {
-      const dbClient = dbClientsMap.get(emailKey);
+      // Ищем клиента в БД: сначала по email, затем по UUID
+      let dbClient = dbClientsMap.get(emailKey);
+      if (!dbClient && xuiClient.uuid) {
+        dbClient = dbClientsByUuidMap.get(xuiClient.uuid.toLowerCase().trim());
+      }
+      
       const totalUsedBytes = BigInt(xuiClient.up) + BigInt(xuiClient.down);
 
       if (dbClient) {
@@ -179,6 +205,11 @@ export async function POST() {
             isActive: xuiClient.enable,
           };
 
+          // Если email изменился (например, переименовали на XUI), обновляем в БД
+          if (dbClient.email.toLowerCase().trim() !== xuiClient.email.toLowerCase().trim()) {
+            updateData.email = xuiClient.email;
+          }
+
           // Автоматически очищаем старые суффиксы и восстанавливаем оригинальное имя с 3XUI при синхронизации
           if (
             dbClient.name.endsWith(' (3XUI)') || 
@@ -188,28 +219,34 @@ export async function POST() {
             updateData.name = xuiClient.email;
           }
 
-          // Если клиент находится в технической компании импорта, но в 3XUI ему задана группа,
-          // переносим его в соответствующую компанию (автоматически создавая её при необходимости)
-          const xuiGroupName = xuiClient.group ? xuiClient.group.trim() : '';
-          if (
-            dbClient.companyId === defaultCompanyId && 
-            xuiGroupName && 
-            xuiGroupName !== 'BTV Clients' && 
-            xuiGroupName !== 'Импортированные (3XUI)'
-          ) {
-            let groupCompany = await prisma.company.findUnique({
-              where: { name: xuiGroupName }
-            });
-            if (!groupCompany) {
-              groupCompany = await prisma.company.create({
-                data: {
-                  name: xuiGroupName,
-                  description: `Автоматически созданная компания на основе группы 3XUI "${xuiGroupName}"`,
-                  isActive: true
+          // Если клиент находится в технической компании импорта, но в 3XUI ему задана группа или
+          // домен почты соответствует B2B компании, переносим его в соответствующую компанию
+          if (dbClient.companyId === defaultCompanyId) {
+            const domainCompany = getCompanyByEmailDomain(xuiClient.email);
+            if (domainCompany) {
+              updateData.companyId = domainCompany.id;
+            } else {
+              const xuiGroupName = xuiClient.group ? xuiClient.group.trim() : '';
+              if (
+                xuiGroupName && 
+                xuiGroupName !== 'BTV Clients' && 
+                xuiGroupName !== 'Импортированные (3XUI)'
+              ) {
+                let groupCompany = await prisma.company.findUnique({
+                  where: { name: xuiGroupName }
+                });
+                if (!groupCompany) {
+                  groupCompany = await prisma.company.create({
+                    data: {
+                      name: xuiGroupName,
+                      description: `Автоматически созданная компания на основе группы 3XUI "${xuiGroupName}"`,
+                      isActive: true
+                    }
+                  });
                 }
-              });
+                updateData.companyId = groupCompany.id;
+              }
             }
-            updateData.companyId = groupCompany.id;
           }
 
           // Синхронизируем срок действия и лимит трафика только если они не переопределены индивидуально
@@ -232,28 +269,33 @@ export async function POST() {
       } else {
         // --- АВТОИМПОРТ НОВОГО КЛИЕНТА ---
         try {
-          // Определяем компанию на основе группы из 3XUI (создавая компанию если не существует)
+          // Определяем компанию: сначала по домену почты, затем по группе из XUI, иначе дефолт
           let clientCompanyId = defaultCompanyId;
-          const xuiGroupName = xuiClient.group ? xuiClient.group.trim() : '';
+          const domainCompany = getCompanyByEmailDomain(xuiClient.email);
           
-          if (
-            xuiGroupName && 
-            xuiGroupName !== 'BTV Clients' && 
-            xuiGroupName !== 'Импортированные (3XUI)'
-          ) {
-            let groupCompany = await prisma.company.findUnique({
-              where: { name: xuiGroupName }
-            });
-            if (!groupCompany) {
-              groupCompany = await prisma.company.create({
-                data: {
-                  name: xuiGroupName,
-                  description: `Автоматически созданная компания на основе группы 3XUI "${xuiGroupName}"`,
-                  isActive: true
-                }
+          if (domainCompany) {
+            clientCompanyId = domainCompany.id;
+          } else {
+            const xuiGroupName = xuiClient.group ? xuiClient.group.trim() : '';
+            if (
+              xuiGroupName && 
+              xuiGroupName !== 'BTV Clients' && 
+              xuiGroupName !== 'Импортированные (3XUI)'
+            ) {
+              let groupCompany = await prisma.company.findUnique({
+                where: { name: xuiGroupName }
               });
+              if (!groupCompany) {
+                groupCompany = await prisma.company.create({
+                  data: {
+                    name: xuiGroupName,
+                    description: `Автоматически созданная компания на основе группы 3XUI "${xuiGroupName}"`,
+                    isActive: true
+                  }
+                });
+              }
+              clientCompanyId = groupCompany.id;
             }
-            clientCompanyId = groupCompany.id;
           }
 
           // Обеспечиваем наличие технического шаблона для импорта
@@ -307,7 +349,12 @@ export async function POST() {
     let deactivateCount = 0;
     for (const dbClient of dbClients) {
       const emailKey = dbClient.email.toLowerCase().trim();
-      if (!clientStatsGrouped[emailKey] && dbClient.isActive) {
+      const uuidKey = dbClient.vpnUuid.toLowerCase().trim();
+      
+      const existsOnXui = clientStatsGrouped[emailKey] || 
+        Object.values(clientStatsGrouped).some(xc => xc.uuid && xc.uuid.toLowerCase().trim() === uuidKey);
+        
+      if (!existsOnXui && dbClient.isActive) {
         try {
           await prisma.client.update({
             where: { id: dbClient.id },

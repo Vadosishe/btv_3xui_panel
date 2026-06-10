@@ -33,13 +33,13 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     }
 
     const { id } = await params;
-    const { name, description, isActive } = await req.json();
+    const { name, description, emailDomains, isActive } = await req.json();
 
     if (!name || name.trim() === '') {
       return NextResponse.json({ success: false, error: 'Название компании обязательно' }, { status: 400 });
     }
 
-    const updatedCompany = await CompanyService.updateCompany(id, { name, description, isActive }, session.userId);
+    const updatedCompany = await CompanyService.updateCompany(id, { name, description, emailDomains, isActive }, session.userId);
     return NextResponse.json({ success: true, company: updatedCompany });
   } catch (error: any) {
     console.error('Error updating company:', error);

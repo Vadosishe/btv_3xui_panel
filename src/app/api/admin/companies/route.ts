@@ -26,13 +26,13 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: 'Не авторизован' }, { status: 401 });
     }
 
-    const { name, description } = await req.json();
+    const { name, description, emailDomains } = await req.json();
 
     if (!name || name.trim() === '') {
-      return NextResponse.json({ success: false, error: 'Название компании обязательно' }, { status: 400 });
+       return NextResponse.json({ success: false, error: 'Название компании обязательно' }, { status: 400 });
     }
 
-    const company = await CompanyService.createCompany({ name, description }, session.userId);
+    const company = await CompanyService.createCompany({ name, description, emailDomains }, session.userId);
     return NextResponse.json({ success: true, company });
   } catch (error: any) {
     console.error('Error creating company:', error);

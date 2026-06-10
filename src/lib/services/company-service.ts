@@ -3,11 +3,13 @@ import prisma from '@/lib/prisma';
 export interface CreateCompanyParams {
   name: string;
   description?: string | null;
+  emailDomains?: string | null;
 }
 
 export interface UpdateCompanyParams {
   name: string;
   description?: string | null;
+  emailDomains?: string | null;
   isActive?: boolean;
 }
 
@@ -47,7 +49,7 @@ export class CompanyService {
    * Создать новую компанию (с автосозданием группы на 3XUI)
    */
   static async createCompany(params: CreateCompanyParams, adminId?: string) {
-    const { name, description } = params;
+    const { name, description, emailDomains } = params;
     const trimmedName = name.trim();
 
     // Проверяем уникальность названия
@@ -63,6 +65,7 @@ export class CompanyService {
       data: {
         name: trimmedName,
         description: description?.trim() || null,
+        emailDomains: emailDomains?.trim() || null,
       },
     });
 
@@ -90,7 +93,7 @@ export class CompanyService {
    * Обновить компанию (с переименованием группы на 3XUI)
    */
   static async updateCompany(id: string, params: UpdateCompanyParams, adminId?: string) {
-    const { name, description, isActive } = params;
+    const { name, description, emailDomains, isActive } = params;
     const trimmedName = name.trim();
 
     const existing = await prisma.company.findUnique({
@@ -119,6 +122,7 @@ export class CompanyService {
       data: {
         name: trimmedName,
         description: description?.trim() || null,
+        emailDomains: emailDomains?.trim() || null,
         isActive: isActive ?? existing.isActive,
       },
     });

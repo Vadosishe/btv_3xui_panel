@@ -20,6 +20,7 @@ interface Company {
   id: string;
   name: string;
   description: string | null;
+  emailDomains: string | null;
   isActive: boolean;
   createdAt: string;
   _count?: { clients: number };
@@ -77,6 +78,7 @@ export default function CompaniesPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [emailDomains, setEmailDomains] = useState('');
   const [isActive, setIsActive] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -104,6 +106,7 @@ export default function CompaniesPage() {
     setEditingId(null);
     setName('');
     setDescription('');
+    setEmailDomains('');
     setIsActive(true);
     setError(null);
     setIsModalOpen(true);
@@ -113,6 +116,7 @@ export default function CompaniesPage() {
     setEditingId(company.id);
     setName(company.name);
     setDescription(company.description || '');
+    setEmailDomains(company.emailDomains || '');
     setIsActive(company.isActive);
     setError(null);
     setIsModalOpen(true);
@@ -132,7 +136,7 @@ export default function CompaniesPage() {
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, description, isActive }),
+        body: JSON.stringify({ name, description, emailDomains, isActive }),
       });
 
       const data = await res.json();
@@ -557,6 +561,14 @@ export default function CompaniesPage() {
                   <Users size={14} style={{ color: '#a855f7' }} />
                   <span>Сотрудников: <strong className="stat-val">{company._count?.clients || 0}</strong></span>
                 </div>
+                {company.emailDomains && (
+                  <div className="stat-item" title="Корпоративные домены почты">
+                    <span style={{ color: '#06b6d4', fontSize: '14px', fontWeight: 'bold' }}>@</span>
+                    <span style={{ fontSize: '11px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '120px' }}>
+                      {company.emailDomains}
+                    </span>
+                  </div>
+                )}
               </div>
 
               <div className="company-footer">
@@ -635,6 +647,20 @@ export default function CompaniesPage() {
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                 />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Корпоративные email домены</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="Например: scalebox.ai, btw.vpn (через запятую)"
+                  value={emailDomains}
+                  onChange={(e) => setEmailDomains(e.target.value)}
+                />
+                <span style={{ fontSize: '10px', color: '#6b7280', marginTop: '-4px' }}>
+                  Для автоматического импорта и привязки клиентов по домену их почты.
+                </span>
               </div>
 
               {editingId && (
