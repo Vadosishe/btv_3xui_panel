@@ -37,21 +37,26 @@ export async function GET() {
       console.warn('Failed to fetch online clients or inbounds in GET clients route:', e);
     }
 
-    const onlineEmailsLower = onlineEmails.map(e => String(e).toLowerCase().trim());
-    const inboundMap = new Map(inbounds.map(i => [i.id, i.remark || i.protocol]));
+    const safeOnlineEmails = Array.isArray(onlineEmails) ? onlineEmails : [];
+    const safeInbounds = Array.isArray(inbounds) ? inbounds : [];
+
+    const onlineEmailsLower = safeOnlineEmails.map(e => String(e).toLowerCase().trim());
+    const inboundMap = new Map(safeInbounds.map(i => [i.id, i.remark || i.protocol]));
 
     // Конвертируем BigInt в строку перед сериализацией JSON
     const serializedClients = clients.map(client => {
       let templateInboundIds: number[] = [];
       try {
-        templateInboundIds = JSON.parse(client.template.inboundIdsJson || '[]');
+        templateInboundIds = JSON.parse(client.template?.inboundIdsJson || '[]');
       } catch (e) {}
 
-      const clientEmailLower = client.email.toLowerCase().trim();
-      const clientUuidLower = client.vpnUuid.toLowerCase().trim();
+      const clientEmailLower = client.email ? client.email.toLowerCase().trim() : '';
+      const clientUuidLower = client.vpnUuid ? client.vpnUuid.toLowerCase().trim() : '';
       const actualInboundIds: number[] = [];
 
-      for (const inbound of inbounds) {
+      for (const inbound of safeInbounds) {
+        if (!inbound) continue;
+
         // 1. Проверяем settings.clients на совпадение по email или uuid
         let settings: any = {};
         try {
@@ -92,7 +97,7 @@ export async function GET() {
 
       return {
         ...client,
-        usedTrafficBytes: client.usedTrafficBytes.toString(),
+        usedTrafficBytes: client.usedTrafficBytes ? client.usedTrafficBytes.toString() : '0',
         isOnline: onlineEmailsLower.includes(clientEmailLower) || 
                   onlineEmailsLower.includes(clientUuidLower),
         nodes: nodeNames,
