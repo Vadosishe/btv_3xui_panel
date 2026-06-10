@@ -170,7 +170,7 @@ export function renderSubscriptionPortal(
         }
         .header {
           text-align: center;
-          margin-bottom: 24px;
+          margin-bottom: 20px;
           position: relative;
         }
         .logo {
@@ -202,13 +202,57 @@ export function renderSubscriptionPortal(
           padding: 16px 24px;
           text-align: center;
           margin-bottom: 20px;
-          font-size: 14px;
+          font-size: 13px;
           color: var(--text-secondary);
         }
         .welcome-card strong {
           color: #fff;
-          font-size: 16px;
+          font-size: 15px;
         }
+
+        /* Навигация по вкладкам (Tabs) */
+        .tabs-nav {
+          display: flex;
+          background: rgba(255, 255, 255, 0.03);
+          border: 1px solid rgba(255, 255, 255, 0.05);
+          border-radius: 16px;
+          padding: 4px;
+          margin-bottom: 24px;
+          gap: 4px;
+        }
+        .tab-btn {
+          flex: 1;
+          border: none;
+          background: transparent;
+          color: var(--text-secondary);
+          padding: 12px 8px;
+          font-size: 13px;
+          font-weight: 700;
+          border-radius: 12px;
+          cursor: pointer;
+          transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .tab-btn:hover {
+          color: #fff;
+          background: rgba(255, 255, 255, 0.02);
+        }
+        .tab-btn.active {
+          color: #fff;
+          background: var(--gradient-primary);
+          box-shadow: 0 4px 15px rgba(0, 240, 255, 0.2);
+        }
+        .tab-content {
+          display: none;
+          animation: fadeScale 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .tab-content.active-content {
+          display: block;
+        }
+        @keyframes fadeScale {
+          from { opacity: 0; transform: scale(0.97) translateY(4px); }
+          to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+
         .card {
           background: var(--card-bg);
           backdrop-filter: blur(20px);
@@ -219,6 +263,14 @@ export function renderSubscriptionPortal(
           box-shadow: 0 15px 35px rgba(0,0,0,0.4);
           margin-bottom: 20px;
           transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+          position: relative;
+          overflow: hidden;
+        }
+        .card::before {
+          content: '';
+          position: absolute;
+          top: 0; left: 0; right: 0; height: 1px;
+          background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
         }
         .card:hover {
           transform: translateY(-2px);
@@ -248,7 +300,7 @@ export function renderSubscriptionPortal(
           padding: 14px;
           border-radius: 14px;
           font-size: 14px;
-          font-weight: 600;
+          font-weight: 700;
           cursor: pointer;
           box-shadow: 0 4px 15px rgba(0, 240, 255, 0.25);
           transition: all 0.3s ease;
@@ -284,6 +336,50 @@ export function renderSubscriptionPortal(
           background: rgba(255, 255, 255, 0.08);
           border-color: rgba(255, 255, 255, 0.15);
         }
+
+        /* Выбор платформы и инструкции */
+        .platform-selector {
+          display: flex;
+          gap: 8px;
+          margin-bottom: 15px;
+        }
+        .plat-btn {
+          flex: 1;
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          background: rgba(255, 255, 255, 0.02);
+          color: var(--text-secondary);
+          padding: 10px;
+          font-size: 12px;
+          font-weight: 700;
+          border-radius: 10px;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+        .plat-btn.active {
+          background: rgba(0, 240, 255, 0.08);
+          border-color: var(--cyan-neon);
+          color: #fff;
+          box-shadow: 0 0 10px rgba(0, 240, 255, 0.1);
+        }
+        .plat-instruction {
+          display: none;
+          background: rgba(0, 0, 0, 0.15);
+          border: 1px solid rgba(255, 255, 255, 0.04);
+          padding: 14px 16px;
+          border-radius: 12px;
+          font-size: 12px;
+          line-height: 1.6;
+          color: var(--text-secondary);
+          margin-bottom: 15px;
+        }
+        .plat-instruction.active-instruction {
+          display: block;
+        }
+        .plat-instruction strong {
+          color: #fff;
+          font-size: 13px;
+        }
+
         .qr-wrapper {
           text-align: center;
           margin-top: 16px;
@@ -442,6 +538,7 @@ export function renderSubscriptionPortal(
           stroke-dashoffset: var(--dashoffset);
           stroke-linecap: round;
           transition: stroke-dashoffset 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+          filter: drop-shadow(0 0 6px rgba(0, 240, 255, 0.5));
         }
         .progress-text {
           position: absolute;
@@ -570,6 +667,7 @@ export function renderSubscriptionPortal(
           font-size: 13px;
           font-weight: 600;
           transition: all 0.2s;
+          margin-top: 10px;
         }
         .btn-support:hover {
           background: rgba(255, 255, 255, 0.08);
@@ -608,179 +706,206 @@ export function renderSubscriptionPortal(
           Приветствуем, <strong>${client.name}</strong>! Параметры вашего подключения и статистика использования приведены ниже.
         </div>
 
-        <!-- 1. ПОДКЛЮЧЕНИЕ: ССЫЛКИ И QR-КОД (Сверху) -->
-        <div class="card">
-          <h2>🛜 Подключение подписки</h2>
-          <div class="actions">
-            <button class="btn-sub" onclick="copySubscription()">
-              <span>📋</span> Скопировать ссылку подписки
-            </button>
+        <!-- Навигация по вкладкам -->
+        <div class="tabs-nav">
+          <button class="tab-btn active" onclick="switchTab(event, 'tab-connect')">🚀 Подключение</button>
+          <button class="tab-btn" onclick="switchTab(event, 'tab-configs')">🔑 Ключи VPN</button>
+          <button class="tab-btn" onclick="switchTab(event, 'tab-status')">📊 Статус</button>
+        </div>
+
+        <!-- ВКЛАДКА 1: ПОДКЛЮЧЕНИЕ -->
+        <div id="tab-connect" class="tab-content active-content">
+          <!-- Скопировать ссылку подписки -->
+          <div class="card">
+            <h2>🛜 Умная ссылка подписки</h2>
+            <div class="actions">
+              <button class="btn-sub" onclick="copySubscription()">
+                <span>📋</span> Скопировать ссылку подписки
+              </button>
+            </div>
+
+            <!-- Секция QR-кода -->
+            ${qrCodeDataUrl ? `
+              <div class="qr-wrapper">
+                <div class="qr-container">
+                  <img src="${qrCodeDataUrl}" alt="Subscription QR Code" />
+                </div>
+                <div class="qr-desc">
+                  Используйте кнопку скопировать или отсканируйте QR-код в приложении (Nekobox, v2rayNG, Shadowrocket) для автоматической настройки.
+                </div>
+              </div>
+            ` : `
+              <div class="qr-wrapper">
+                <div class="qr-desc" style="color: var(--text-muted);">QR-код подписки временно недоступен</div>
+              </div>
+            `}
           </div>
 
-          <!-- Секция QR-кода -->
-          ${qrCodeDataUrl ? `
-            <div class="qr-wrapper">
-              <div class="qr-container">
-                <img src="${qrCodeDataUrl}" alt="Subscription QR Code" />
+          <!-- Быстрая настройка по платформам -->
+          <div class="card">
+            <h2>⚡ Инструкция по настройке</h2>
+            
+            <div class="platform-selector">
+              <button class="plat-btn active" onclick="switchPlatform(event, 'ios')">🍏 iOS</button>
+              <button class="plat-btn" onclick="switchPlatform(event, 'android')">🤖 Android</button>
+              <button class="plat-btn" onclick="switchPlatform(event, 'desktop')">💻 PC / Mac</button>
+            </div>
+
+            <div id="plat-instruction-ios" class="plat-instruction active-instruction">
+              <strong>Инструкция для Apple (iOS):</strong><br/>
+              1. Скопируйте ссылку подписки кнопкой выше.<br/>
+              2. Установите приложение <strong>Happ - Proxy Utility</strong> или <strong>V2Box / Shadowrocket</strong> из App Store.<br/>
+              3. Вставьте ссылку подписки в настройки приложения и обновите конфигурации.
+            </div>
+
+            <div id="plat-instruction-android" class="plat-instruction">
+              <strong>Инструкция для Android:</strong><br/>
+              1. Скопируйте ссылку подписки кнопкой выше.<br/>
+              2. Установите приложение <strong>v2rayNG</strong> или <strong>Happ</strong> из Google Play.<br/>
+              3. Откройте боковое меню -> «Группы подписок» -> Добавьте вашу ссылку. Обновите подписку.
+            </div>
+
+            <div id="plat-instruction-desktop" class="plat-instruction">
+              <strong>Инструкция для Windows / macOS:</strong><br/>
+              1. Скопируйте ссылку подписки кнопкой выше.<br/>
+              2. Скачайте приложение <strong>Nekoray / v2rayN</strong> для вашей ОС.<br/>
+              3. Перейдите в настройки подписок, добавьте ссылку подписки и активируйте системный прокси.
+            </div>
+            
+            <div class="instructions-box instructions-cyan" style="margin-top: 10px; margin-bottom: 0px;">
+              <div class="instructions-title" style="color: #22d3ee;">Рекомендуемый клиент Happ:</div>
+              Happ Proxy Utility импортирует вашу ссылку автоматически из буфера при первом запуске.
+              <div class="happ-links">
+                <a href="https://www.happ.su/main" target="_blank" class="btn-market">Скачать Happ (iOS / Android)</a>
               </div>
-              <div class="qr-desc">
-                Используйте кнопку копирования или отсканируйте QR-код в приложении (v2rayNG, Sing-box, Shadowrocket) для импорта подписки.
+            </div>
+          </div>
+        </div>
+
+        <!-- ВКЛАДКА 2: КЛЮЧИ VPN -->
+        <div id="tab-configs" class="tab-content">
+          <!-- VLESS Ключи -->
+          ${configLinks.length > 0 ? `
+            <div class="card">
+              <h2>🔑 Конфигурации VLESS</h2>
+              <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 16px; line-height: 1.4;">
+                Для ручного добавления скопируйте нужную конфигурацию и импортируйте её в любой VPN-клиент из буфера обмена.
+              </div>
+              <div class="actions" style="gap: 8px;">
+                ${configLinks.map((link, idx) => {
+                  const proto = link.split('://')[0].toUpperCase();
+                  const nodeName = link.includes('#') ? decodeURIComponent(link.split('#')[1]).split('_')[0] : `Локация ${idx + 1}`;
+                  return `
+                    <div class="config-item">
+                      <span class="config-name">${nodeName} (${proto})</span>
+                      <span class="copy-action" onclick="copyConfig(${idx})">Копировать</span>
+                    </div>
+                  `;
+                }).join('')}
+              </div>
+            </div>
+          ` : ''}
+
+          <!-- Amnezia WG -->
+          ${clientAwgServers.length > 0 ? `
+            <div class="card">
+              <h2>🛡️ Amnezia WireGuard файлы</h2>
+              <div class="instructions-box" style="margin-bottom: 16px;">
+                <div class="instructions-title">Настройка Amnezia:</div>
+                Скачайте файл <code>.conf</code> для выбранной локации ниже и импортируйте его в официальное приложение <strong>AmneziaVPN</strong> или <strong>Amnezia WG</strong>.
+              </div>
+              <div class="actions" style="gap: 10px;">
+                ${clientAwgServers.map(server => `
+                  <button class="btn-download" onclick="downloadAmneziaConfig('${server.id}')">
+                    <span>📥</span>
+                    <span>Скачать конфиг: <b>${server.name}</b> (.conf)</span>
+                  </button>
+                `).join('')}
               </div>
             </div>
           ` : `
-            <div class="qr-wrapper">
-              <div class="qr-desc" style="color: var(--text-muted);">QR-код подписки временно недоступен</div>
+            <div class="card">
+              <h2>🛡️ Резервный канал Amnezia WireGuard</h2>
+              <div class="instructions-box" style="margin-bottom: 16px;">
+                Скачайте файл профиля по кнопке ниже и импортируйте его в приложение <strong>AmneziaVPN</strong>.
+              </div>
+              <button class="btn-download" onclick="downloadAmneziaConfig()">
+                <span>📥</span> Скачать конфиг Amnezia (.vpn)
+              </button>
             </div>
           `}
         </div>
 
-        <!-- 2. СЕКЦИЯ AMNEZIA WG (Сверху, если привязано) -->
-        ${clientAwgServers.length > 0 ? `
+        <!-- ВКЛАДКА 3: СТАТУС -->
+        <div id="tab-status" class="tab-content">
+          <!-- Статистика трафика -->
           <div class="card">
-            <h2>🛡️ Подключение Amnezia WireGuard</h2>
-            <div class="instructions-box">
-              <div class="instructions-title">Порядок настройки:</div>
-              1. Установите приложение <strong>AmneziaVPN</strong> (<a href="https://amnezia.org/ru" target="_blank" style="color: var(--cyan-neon); text-decoration: underline;">Официальный сайт</a> или <a href="https://storage.googleapis.com/amnezia/amnezia.org" target="_blank" style="color: var(--cyan-neon); text-decoration: underline;">Зеркало для РФ</a>).<br/>
-              2. Скачайте файл конфигурации (.conf) для нужного сервера ниже.<br/>
-              3. Импортируйте скачанный файл в приложении AmneziaVPN.
-              <div style="margin-top: 8px; color: #a78bfa; font-size: 11px; font-weight: 500;">💡 Также подходит приложение <strong>Amnezia WG</strong>.</div>
-            </div>
-            <div class="actions" style="gap: 10px;">
-              ${clientAwgServers.map(server => `
-                <button class="btn-download" onclick="downloadAmneziaConfig('${server.id}')">
-                  <span>📥</span>
-                  <span>Скачать файл: <b>${server.name}</b> (.conf)</span>
-                </button>
-              `).join('')}
-            </div>
-          </div>
-        ` : `
-          <div class="card">
-            <h2>🛡️ Резервный канал Amnezia WireGuard</h2>
-            <div class="instructions-box">
-              <div class="instructions-title">Порядок настройки:</div>
-              1. Установите приложение <strong>AmneziaVPN</strong> (<a href="https://amnezia.org/ru" target="_blank" style="color: var(--cyan-neon); text-decoration: underline;">Официальный сайт</a> или <a href="https://storage.googleapis.com/amnezia/amnezia.org" target="_blank" style="color: var(--cyan-neon); text-decoration: underline;">Зеркало для РФ</a>).<br/>
-              2. Скачайте файл конфигурации по кнопке ниже.<br/>
-              3. Импортируйте скачанный файл в приложении AmneziaVPN.
-              <div style="margin-top: 8px; color: #a78bfa; font-size: 11px; font-weight: 500;">💡 Также подходит приложение <strong>Amnezia WG</strong>.</div>
-            </div>
-            <button class="btn-download" onclick="downloadAmneziaConfig()">
-              <span>📥</span> Скачать конфиг Amnezia (.vpn)
-            </button>
-          </div>
-        `}
-
-        <!-- 3. VLESS КЛЮЧИ ДЛЯ РУЧНОГО ИМПОРТА (Сверху) -->
-        ${configLinks.length > 0 ? `
-          <div class="card">
-            <h2>🔑 Конфигурации VLESS</h2>
-            <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 12px; line-height: 1.4;">
-              Для ручной настройки скопируйте нужный ключ и импортируйте его в клиент (v2rayNG, Nekobox, Shadowrocket).
-            </div>
-            <div class="actions" style="gap: 8px;">
-              ${configLinks.map((link, idx) => {
-                const proto = link.split('://')[0].toUpperCase();
-                const nodeName = link.includes('#') ? decodeURIComponent(link.split('#')[1]).split('_')[0] : `Локация ${idx + 1}`;
-                return `
-                  <div class="config-item">
-                    <span class="config-name">${nodeName} (${proto})</span>
-                    <span class="copy-action" onclick="copyConfig(${idx})">Копировать</span>
-                  </div>
-                `;
-              }).join('')}
-            </div>
-            <div style="margin-top: 12px; font-size: 11px; color: var(--text-muted); border-top: 1px solid rgba(255, 255, 255, 0.05); padding-top: 10px; line-height: 1.4;">
-              💡 <strong>Альтернативные клиенты:</strong> Вы также можете использовать официальные приложения <strong>Sing-box</strong>, <strong>v2rayNG</strong> (Android) или <strong>V2Box / Shadowrocket</strong> (iOS).
-            </div>
-          </div>
-        ` : ''}
-
-        <!-- 4. БЫСТРАЯ НАСТРОЙКА HAPP (Сверху) -->
-        <div class="card">
-          <h2>⚡ Настройка через Happ</h2>
-          <div class="instructions-box instructions-cyan">
-            <div class="instructions-title" style="color: #22d3ee;">Рекомендуемый способ подключения:</div>
-            <ol style="margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; line-height: 1.6;">
-              <li>Скопируйте ссылку подписки с помощью кнопки выше.</li>
-              <li>
-                Установите приложение <strong>Happ - Proxy Utility</strong>:
-                <div class="happ-links" style="margin-top: 8px; margin-bottom: 4px;">
-                  <a href="https://www.happ.su/main" target="_blank" class="btn-sub" style="padding: 10px 16px; font-size: 12px; display: inline-flex; width: auto; box-shadow: none;">🍏🤖 Скачать Happ (iOS / Android)</a>
-                </div>
-              </li>
-              <li>Откройте приложение <strong>Happ</strong>, подтвердите автоматический импорт ссылки из буфера обмена и нажмите кнопку подключения в центре.</li>
-            </ol>
-          </div>
-        </div>
-
-        <!-- 5. ТЕКУЩАЯ ИНФОРМАЦИЯ И СТАТИСТИКА (Снизу) -->
-        <div class="card">
-          <h2>📊 Состояние подключения</h2>
-          
-          <div class="progress-section">
-            <div class="progress-circle" style="--dashoffset: ${377 - (377 * progress) / 100}">
-              <svg viewBox="0 0 140 140">
-                <defs>
-                  <linearGradient id="cyan-purple-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stop-color="#00f0ff" />
-                    <stop offset="100%" stop-color="#a855f7" />
-                  </linearGradient>
-                </defs>
-                <circle class="bg" cx="70" cy="70" r="60" />
-                <circle class="bar" cx="70" cy="70" r="60" />
-              </svg>
-              <div class="progress-text">
-                <div class="progress-val">${progress}%</div>
-                <div class="progress-label">Трафик</div>
-              </div>
-            </div>
+            <h2>📊 Расход трафика и лимиты</h2>
             
-            <div class="usage-text">
-              Использовано <strong>${usedGB} GB</strong> из <strong>${limitGB}</strong>
+            <div class="progress-section">
+              <div class="progress-circle" style="--dashoffset: ${377 - (377 * progress) / 100}">
+                <svg viewBox="0 0 140 140">
+                  <defs>
+                    <linearGradient id="cyan-purple-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stop-color="#00f0ff" />
+                      <stop offset="100%" stop-color="#a855f7" />
+                    </linearGradient>
+                  </defs>
+                  <circle class="bg" cx="70" cy="70" r="60" />
+                  <circle class="bar" cx="70" cy="70" r="60" />
+                </svg>
+                <div class="progress-text">
+                  <div class="progress-val">${progress}%</div>
+                  <div class="progress-label">Лимит</div>
+                </div>
+              </div>
+              
+              <div class="usage-text">
+                Использовано <strong>${usedGB} GB</strong> из <strong>${limitGB}</strong>
+              </div>
+            </div>
+
+            <div class="stats-grid">
+              <div class="stat-box">
+                <div class="stat-val active">Активна</div>
+                <div class="stat-lbl">VPN подключение</div>
+              </div>
+              <div class="stat-box">
+                <div class="stat-val" style="color: #fff;">${expirationText}</div>
+                <div class="stat-lbl">Действует до</div>
+              </div>
             </div>
           </div>
 
-          <div class="stats-grid">
-            <div class="stat-box">
-              <div class="stat-val active">Активна</div>
-              <div class="stat-lbl">Статус VPN</div>
+          <!-- Telegram-уведомления -->
+          ${cleanTgBotUsername ? `
+            <div class="card">
+              <h2>🤖 Telegram уведомления</h2>
+              ${client.tgId ? `
+                <div class="tg-status-box">
+                  <strong>✅ Telegram подключен:</strong>
+                  Аккаунт: <b>${client.telegramUsername ? `@${client.telegramUsername}` : `имя: ${client.telegramFirstName || 'Сотрудник'}`}</b> (ID: ${client.tgId})<br/>
+                  Бот присылает предупреждения при приближении к лимиту трафика или окончании действия ключа.
+                </div>
+                <a href="?action=unbind" class="tg-unbind-btn">
+                  ❌ Отвязать аккаунт Telegram
+                </a>
+              ` : `
+                <div class="instructions-box instructions-cyan" style="margin-bottom: 16px;">
+                  Подключите нашего Telegram-бота, чтобы оперативно получать информацию о лимитах и продлении ваших ключей.
+                </div>
+                <a href="javascript:void(0)" onclick="openTgBot('https://t.me/${cleanTgBotUsername}?start=${client.subscriptionToken}')" class="btn-tg-bind">
+                  🔗 Привязать аккаунт Telegram
+                </a>
+              `}
             </div>
-            <div class="stat-box">
-              <div class="stat-val" style="color: #fff;">${expirationText}</div>
-              <div class="stat-lbl">Действует до</div>
-            </div>
-          </div>
+          ` : ''}
         </div>
 
-        <!-- 6. TELEGRAM БОТ И УВЕДОМЛЕНИЯ (Снизу) -->
-        ${cleanTgBotUsername ? `
-          <div class="card">
-            <h2>🤖 Telegram-уведомления</h2>
-            ${client.tgId ? `
-              <div class="tg-status-box">
-                <strong>✅ Telegram привязан:</strong>
-                Аккаунт: <b>${client.telegramUsername ? `@${client.telegramUsername}` : `имя: ${client.telegramFirstName || 'Пользователь'}`}</b> (ID: ${client.tgId})<br/>
-                Система присылает уведомления об окончании трафика и статусе подписки.
-              </div>
-              <a href="?action=unbind" class="tg-unbind-btn">
-                ❌ Отключить уведомления в Telegram
-              </a>
-            ` : `
-              <div class="instructions-box instructions-cyan" style="margin-bottom: 16px;">
-                Подключите Telegram-бота для получения автоматических уведомлений об остатке трафика, дате окончания подписки и проверки статуса.
-              </div>
-              <a href="javascript:void(0)" onclick="openTgBot('https://t.me/${cleanTgBotUsername}?start=${client.subscriptionToken}')" class="btn-tg-bind">
-                🔗 Подключить Telegram-бота
-              </a>
-            `}
-          </div>
-        ` : ''}
-
-        <!-- 7. ТЕХПОДДЕРЖКА (Снизу) -->
+        <!-- ТЕХПОДДЕРЖКА (Всегда видна внизу) -->
         <a href="${supportLink}" class="btn-support" target="_blank">
           💬 Связаться с техподдержкой
         </a>
-
       </div>
 
       <div class="toast" id="toast">Ссылка успешно скопирована!</div>
@@ -788,6 +913,32 @@ export function renderSubscriptionPortal(
       <script>
         const configLinks = ${configsJson};
         const subUrl = window.location.href;
+
+        function switchTab(evt, tabId) {
+          const contents = document.getElementsByClassName("tab-content");
+          for (let i = 0; i < contents.length; i++) {
+            contents[i].classList.remove("active-content");
+          }
+          const buttons = document.getElementsByClassName("tab-btn");
+          for (let i = 0; i < buttons.length; i++) {
+            buttons[i].classList.remove("active");
+          }
+          document.getElementById(tabId).classList.add("active-content");
+          evt.currentTarget.classList.add("active");
+        }
+
+        function switchPlatform(evt, platform) {
+          const instructions = document.getElementsByClassName("plat-instruction");
+          for (let i = 0; i < instructions.length; i++) {
+            instructions[i].classList.remove("active-instruction");
+          }
+          const buttons = document.getElementsByClassName("plat-btn");
+          for (let i = 0; i < buttons.length; i++) {
+            buttons[i].classList.remove("active");
+          }
+          document.getElementById("plat-instruction-" + platform).classList.add("active-instruction");
+          evt.currentTarget.classList.add("active");
+        }
 
         function openTgBot(url) {
           if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.openTelegramLink) {
