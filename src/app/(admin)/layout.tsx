@@ -17,6 +17,7 @@ import {
   Sun,
   Moon,
   Inbox,
+  Activity,
 } from 'lucide-react';
 
 interface AdminInfo {
@@ -44,6 +45,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { name: 'Заявки', path: '/requests', icon: Inbox },
     { name: 'Логи аудита', path: '/audit', icon: History },
     { name: 'Настройки', path: '/settings', icon: SettingsIcon },
+    { name: 'Диагностика', path: '/debug', icon: Activity },
   ];
 
   useEffect(() => {
@@ -415,7 +417,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <span>Выйти</span>
           </button>
           <div style={{ textAlign: 'center', fontSize: '10px', color: 'var(--text-muted)', marginTop: '6px', display: 'flex', flexDirection: 'column', gap: '2px', alignItems: 'center' }}>
-            <span>BTV Panel v1.3.2</span>
+            <span>BTV Panel v1.3.3</span>
             <span style={{ opacity: 0.6 }}>API 3X-UI v3.3.0</span>
           </div>
         </div>

@@ -9,7 +9,7 @@ interface XuiConfig {
 /**
  * Получить настройки 3XUI из базы данных (AppSetting) или из окружения
  */
-async function getXuiConfig(): Promise<XuiConfig> {
+export async function getXuiConfig(): Promise<XuiConfig> {
   const settings = await prisma.appSetting.findMany();
   const settingsMap = new Map(settings.map(s => [s.key, s.value]));
 
@@ -39,7 +39,7 @@ async function getXuiConfig(): Promise<XuiConfig> {
 /**
  * Универсальный метод отправки запросов к API 3XUI с Bearer авторизацией
  */
-async function xuiRequest<T = any>(
+export async function xuiRequest<T = any>(
   path: string,
   method: 'GET' | 'POST',
   body?: any
