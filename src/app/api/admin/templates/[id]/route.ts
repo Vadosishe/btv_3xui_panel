@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import prisma from '@/lib/prisma';
 import { getSession } from '@/lib/auth';
+import { TemplateService } from '@/lib/services/template-service';
 
 // Получить конкретный шаблон
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -11,36 +11,13 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     }
 
     const { id } = await params;
-
-    const template = await prisma.template.findUnique({
-      where: { id },
-    });
+    const template = await TemplateService.getTemplateDetails(id);
 
     if (!template) {
       return NextResponse.json({ success: false, error: 'Шаблон не найден' }, { status: 404 });
     }
 
-    // Получаем привязки к серверам Amnezia
-    let awgServerIds: string[] = [];
-    try {
-      const setting = await prisma.appSetting.findUnique({
-        where: { key: 'template_awg_servers' }
-      });
-      if (setting && setting.value) {
-        const templateAwgMap = JSON.parse(setting.value);
-        awgServerIds = templateAwgMap[id] || [];
-      }
-    } catch (e) {
-      console.warn('Failed to load template_awg_servers mapping in templates ID GET:', e);
-    }
-
-    return NextResponse.json({
-      success: true,
-      template: {
-        ...template,
-        awgServerIds
-      }
-    });
+    return NextResponse.json({ success: true, template });
   } catch (error: any) {
     console.error('Error fetching template details:', error);
     return NextResponse.json({ success: false, error: 'Ошибка при получении данных шаблона' }, { status: 500 });
@@ -56,7 +33,8 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     }
 
     const { id } = await params;
-    const { name, description, inboundIds, trafficLimitGB, limitIp, durationDays, flow, awgServerIds } = await req.json();
+    const body = await req.json();
+    const { name, inboundIds } = body;
 
     if (!name || name.trim() === '') {
       return NextResponse.json({ success: false, error: 'Название шаблона обязательно' }, { status: 400 });
@@ -66,71 +44,11 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       return NextResponse.json({ success: false, error: 'Необходимо привязать хотя бы одно входящее подключение (Inbound)' }, { status: 400 });
     }
 
-    const existing = await prisma.template.findUnique({
-      where: { id },
-    });
-
-    if (!existing) {
-      return NextResponse.json({ success: false, error: 'Шаблон не найден' }, { status: 404 });
-    }
-
-    // Проверяем уникальность названия при изменении
-    if (name.trim().toLowerCase() !== existing.name.toLowerCase()) {
-      const nameDuplicate = await prisma.template.findUnique({
-        where: { name: name.trim() },
-      });
-      if (nameDuplicate) {
-        return NextResponse.json({ success: false, error: 'Шаблон с таким названием уже существует' }, { status: 400 });
-      }
-    }
-
-    const updatedTemplate = await prisma.template.update({
-      where: { id },
-      data: {
-        name: name.trim(),
-        description: description?.trim() || null,
-        inboundIdsJson: JSON.stringify(inboundIds),
-        trafficLimitGB: Number(trafficLimitGB) || 0,
-        limitIp: Number(limitIp) || 0,
-        durationDays: durationDays !== undefined && durationDays !== null ? Number(durationDays) : 30,
-        flow: flow?.trim() || "",
-      },
-    });
-
-    // Обновляем связи с серверами Amnezia
-    if (awgServerIds && Array.isArray(awgServerIds)) {
-      try {
-        const setting = await prisma.appSetting.findUnique({
-          where: { key: 'template_awg_servers' }
-        });
-        let templateAwgMap: Record<string, string[]> = {};
-        if (setting && setting.value) {
-          templateAwgMap = JSON.parse(setting.value);
-        }
-        templateAwgMap[id] = awgServerIds;
-        await prisma.appSetting.upsert({
-          where: { key: 'template_awg_servers' },
-          update: { value: JSON.stringify(templateAwgMap) },
-          create: { key: 'template_awg_servers', value: JSON.stringify(templateAwgMap) }
-        });
-      } catch (e) {
-        console.error('Failed to save template_awg_servers mapping in templates ID PUT:', e);
-      }
-    }
-
-    // Логируем аудит
-    await prisma.auditLog.create({
-      data: {
-        action: 'UPDATE_TEMPLATE',
-        details: `Обновлен шаблон VPN: ${updatedTemplate.name} (Лимит ГБ: ${updatedTemplate.trafficLimitGB}, Срок: ${updatedTemplate.durationDays} дн.)`,
-        adminId: session.userId,
-      },
-    });
-
+    const updatedTemplate = await TemplateService.updateTemplate(id, body, session.userId);
     return NextResponse.json({ success: true, template: updatedTemplate });
   } catch (error: any) {
     console.error('Error updating template:', error);
-    return NextResponse.json({ success: false, error: 'Ошибка при обновлении данных шаблона' }, { status: 500 });
+    return NextResponse.json({ success: false, error: error.message || 'Ошибка при обновлении данных шаблона' }, { status: 400 });
   }
 }
 
@@ -143,66 +61,12 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
     }
 
     const { id } = await params;
-
-    const template = await prisma.template.findUnique({
-      where: { id },
-    });
-
-    if (!template) {
-      return NextResponse.json({ success: false, error: 'Шаблон не найден' }, { status: 404 });
-    }
-
-    // 1. Проверяем, есть ли клиенты, привязанные к этому шаблону
-    const clientsCount = await prisma.client.count({
-      where: { templateId: id },
-    });
-
-    if (clientsCount > 0) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: `Невозможно удалить шаблон, так как он назначен ${clientsCount} клиентам. Сначала переназначьте их на другой шаблон.`,
-        },
-        { status: 400 }
-      );
-    }
-
-    // 2. Удаляем шаблон из БД
-    await prisma.template.delete({
-      where: { id },
-    });
-
-    // Очищаем связи с серверами Amnezia
-    try {
-      const setting = await prisma.appSetting.findUnique({
-        where: { key: 'template_awg_servers' }
-      });
-      if (setting && setting.value) {
-        const templateAwgMap = JSON.parse(setting.value);
-        if (templateAwgMap[id]) {
-          delete templateAwgMap[id];
-          await prisma.appSetting.update({
-            where: { key: 'template_awg_servers' },
-            data: { value: JSON.stringify(templateAwgMap) }
-          });
-        }
-      }
-    } catch (e) {
-      console.error('Failed to clean up template_awg_servers mapping on DELETE:', e);
-    }
-
-    // Логируем аудит
-    await prisma.auditLog.create({
-      data: {
-        action: 'DELETE_TEMPLATE',
-        details: `Удален шаблон VPN: ${template.name}`,
-        adminId: session.userId,
-      },
-    });
+    await TemplateService.deleteTemplate(id, session.userId);
 
     return NextResponse.json({ success: true, message: 'Шаблон успешно удален' });
   } catch (error: any) {
     console.error('Error deleting template:', error);
-    return NextResponse.json({ success: false, error: 'Ошибка при удалении шаблона' }, { status: 500 });
+    return NextResponse.json({ success: false, error: error.message || 'Ошибка при удалении шаблона' }, { status: 400 });
   }
 }
+

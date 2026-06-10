@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server';
-import crypto from 'crypto';
 import prisma from '@/lib/prisma';
 import { getSession } from '@/lib/auth';
-import { xuiAddClient, xuiDeleteClient, getCleanLatinName, xuiClearCache } from '@/lib/xui';
+import { ClientService } from '@/lib/services/client-service';
 import { sendTelegramMessage } from '@/lib/telegram';
 
 // GET — Получить одну заявку по ID
@@ -59,101 +58,20 @@ export async function PUT(
         return NextResponse.json({ success: false, error: 'Необходимо выбрать шаблон VPN' }, { status: 400 });
       }
 
-      // Получаем компанию и шаблон
-      const company = await prisma.company.findUnique({ where: { id: companyId } });
-      const template = await prisma.template.findUnique({ where: { id: templateId } });
-
-      if (!company) {
-        return NextResponse.json({ success: false, error: 'Компания не найдена' }, { status: 404 });
-      }
-      if (!template) {
-        return NextResponse.json({ success: false, error: 'Шаблон не найден' }, { status: 404 });
-      }
-
-      // Генерация уникальных идентификаторов клиента
-      const clientUuid = crypto.randomUUID();
-      const subToken = crypto.randomUUID();
       const finalClientName = clientName || request.name || request.email;
-      const cleanName = getCleanLatinName(finalClientName);
-      const clientEmail = `${cleanName}_${clientUuid.slice(0, 8)}@btv.vpn`;
 
-      // Парсим инбаунды из шаблона
-      let inboundIds: number[] = [];
-      try {
-        inboundIds = JSON.parse(template.inboundIdsJson || '[]');
-      } catch (e) {
-        return NextResponse.json({ success: false, error: 'Ошибка структуры инбаундов в шаблоне' }, { status: 500 });
+      // Делегируем создание клиента в ClientService
+      const createRes = await ClientService.createClients({
+        name: finalClientName,
+        companyId,
+        templateId,
+      }, session.userId);
+
+      if (!createRes.success || createRes.clients.length === 0) {
+        return NextResponse.json({ success: false, error: createRes.lastError || 'Не удалось создать клиента на VPN сервере' }, { status: 502 });
       }
 
-      if (inboundIds.length === 0) {
-        return NextResponse.json({ success: false, error: 'В выбранном шаблоне нет активных инбаундов 3XUI' }, { status: 400 });
-      }
-
-      // Вычисляем лимиты из шаблона
-      const trafficLimitGB = template.trafficLimitGB;
-      const limitIp = template.limitIp;
-      const flow = template.flow || '';
-
-      // Лимит трафика в байтах
-      const trafficBytesLimit = trafficLimitGB > 0
-        ? BigInt(trafficLimitGB) * BigInt(1024 * 1024 * 1024)
-        : BigInt(0);
-
-      // Срок действия
-      let expiresAt: Date | null = null;
-      if (template.durationDays > 0) {
-        const expDate = new Date();
-        expDate.setDate(expDate.getDate() + template.durationDays);
-        expiresAt = expDate;
-      }
-      const expiryTimeMs = expiresAt ? expiresAt.getTime() : 0;
-
-      // Регистрация клиента на 3XUI сервере
-      const addedInboundIds: number[] = [];
-      for (const inboundId of inboundIds) {
-        try {
-          const added = await xuiAddClient(inboundId, {
-            id: clientUuid,
-            email: clientEmail,
-            limitIp,
-            totalGB: Number(trafficBytesLimit),
-            expiryTime: expiryTimeMs,
-            enable: true,
-            flow,
-            tgId: '',
-            templateId,
-            group: company.name,
-          });
-
-          if (added) {
-            addedInboundIds.push(inboundId);
-          } else {
-            // Откат ранее добавленных
-            for (const addedId of addedInboundIds) {
-              try { await xuiDeleteClient(addedId, clientEmail); } catch (e) {}
-            }
-            return NextResponse.json({ success: false, error: `Панель 3XUI отклонила добавление в Inbound ID ${inboundId}` }, { status: 502 });
-          }
-        } catch (err: any) {
-          // Откат при ошибке
-          for (const addedId of addedInboundIds) {
-            try { await xuiDeleteClient(addedId, clientEmail); } catch (e) {}
-          }
-          return NextResponse.json({ success: false, error: `Ошибка подключения к API 3XUI: ${err.message}` }, { status: 502 });
-        }
-      }
-
-      // Создаём клиента в БД
-      const newClient = await prisma.client.create({
-        data: {
-          name: finalClientName,
-          email: clientEmail,
-          vpnUuid: clientUuid,
-          subscriptionToken: subToken,
-          companyId,
-          templateId,
-        },
-      });
+      const newClient = createRes.clients[0];
 
       // Обновляем заявку
       await prisma.vpnRequest.update({
@@ -162,15 +80,6 @@ export async function PUT(
           status: 'APPROVED',
           adminNote: adminNote || '',
           clientId: newClient.id,
-        },
-      });
-
-      // Аудит
-      await prisma.auditLog.create({
-        data: {
-          action: 'APPROVE_REQUEST',
-          details: `Одобрена заявка от ${request.email}. Создан клиент: ${finalClientName} (Компания: ${company.name}, Шаблон: ${template.name})`,
-          adminId: session.userId,
         },
       });
 
@@ -183,7 +92,7 @@ export async function PUT(
           const panelUrl = panelUrlSetting?.value || process.env.NEXTAUTH_URL || 'http://localhost:3000';
 
           if (botToken) {
-            const subLink = `${panelUrl}/api/sub/${subToken}`;
+            const subLink = `${panelUrl}/api/sub/${newClient.subscriptionToken}`;
             const msg = `✅ <b>Ваша заявка на VPN одобрена!</b>\n\n` +
               `Привет, ${finalClientName}! Ваш запрос на VPN-подключение был одобрен администратором.\n\n` +
               `🔗 <b>Ссылка подписки:</b>\n<code>${subLink}</code>\n\n` +
@@ -195,9 +104,6 @@ export async function PUT(
           console.error('Failed to send Telegram approval notification:', tgErr);
         }
       }
-
-      // Очистка кэша
-      try { xuiClearCache(); } catch (e) {}
 
       return NextResponse.json({
         success: true,

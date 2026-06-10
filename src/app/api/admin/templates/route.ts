@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import prisma from '@/lib/prisma';
 import { getSession } from '@/lib/auth';
+import { TemplateService } from '@/lib/services/template-service';
 
 // 1. Получить список всех шаблонов
 export async function GET() {
@@ -10,34 +10,8 @@ export async function GET() {
       return NextResponse.json({ success: false, error: 'Не авторизован' }, { status: 401 });
     }
 
-    const templates = await prisma.template.findMany({
-      include: {
-        _count: {
-          select: { clients: true },
-        },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
-
-    // Получаем привязки к серверам Amnezia
-    let templateAwgMap: Record<string, string[]> = {};
-    try {
-      const setting = await prisma.appSetting.findUnique({
-        where: { key: 'template_awg_servers' }
-      });
-      if (setting && setting.value) {
-        templateAwgMap = JSON.parse(setting.value);
-      }
-    } catch (e) {
-      console.warn('Failed to load template_awg_servers mapping in templates GET:', e);
-    }
-
-    const templatesWithAwg = templates.map(t => ({
-      ...t,
-      awgServerIds: templateAwgMap[t.id] || []
-    }));
-
-    return NextResponse.json({ success: true, templates: templatesWithAwg });
+    const templates = await TemplateService.getTemplatesList();
+    return NextResponse.json({ success: true, templates });
   } catch (error: any) {
     console.error('Error fetching templates:', error);
     return NextResponse.json({ success: false, error: 'Ошибка при получении списка шаблонов' }, { status: 500 });
@@ -52,7 +26,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: 'Не авторизован' }, { status: 401 });
     }
 
-    const { name, description, inboundIds, trafficLimitGB, limitIp, durationDays, flow, awgServerIds } = await req.json();
+    const body = await req.json();
+    const { name, inboundIds } = body;
 
     if (!name || name.trim() === '') {
       return NextResponse.json({ success: false, error: 'Название шаблона обязательно' }, { status: 400 });
@@ -62,60 +37,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: 'Необходимо привязать хотя бы одно входящее подключение (Inbound)' }, { status: 400 });
     }
 
-    // Проверяем уникальность названия
-    const existing = await prisma.template.findUnique({
-      where: { name: name.trim() },
-    });
-
-    if (existing) {
-      return NextResponse.json({ success: false, error: 'Шаблон с таким названием уже существует' }, { status: 400 });
-    }
-
-    const template = await prisma.template.create({
-      data: {
-        name: name.trim(),
-        description: description?.trim() || null,
-        inboundIdsJson: JSON.stringify(inboundIds),
-        trafficLimitGB: Number(trafficLimitGB) || 0,
-        limitIp: Number(limitIp) || 0,
-        durationDays: durationDays !== undefined && durationDays !== null ? Number(durationDays) : 30,
-        flow: flow?.trim() || "",
-      },
-    });
-
-    // Сохраняем связи с серверами Amnezia
-    if (awgServerIds && Array.isArray(awgServerIds)) {
-      try {
-        const setting = await prisma.appSetting.findUnique({
-          where: { key: 'template_awg_servers' }
-        });
-        let templateAwgMap: Record<string, string[]> = {};
-        if (setting && setting.value) {
-          templateAwgMap = JSON.parse(setting.value);
-        }
-        templateAwgMap[template.id] = awgServerIds;
-        await prisma.appSetting.upsert({
-          where: { key: 'template_awg_servers' },
-          update: { value: JSON.stringify(templateAwgMap) },
-          create: { key: 'template_awg_servers', value: JSON.stringify(templateAwgMap) }
-        });
-      } catch (e) {
-        console.error('Failed to save template_awg_servers mapping in templates POST:', e);
-      }
-    }
-
-    // Логируем аудит
-    await prisma.auditLog.create({
-      data: {
-        action: 'CREATE_TEMPLATE',
-        details: `Создан шаблон VPN: ${template.name} (Лимит ГБ: ${template.trafficLimitGB}, Срок дней: ${template.durationDays})`,
-        adminId: session.userId,
-      },
-    });
-
+    const template = await TemplateService.createTemplate(body, session.userId);
     return NextResponse.json({ success: true, template });
   } catch (error: any) {
     console.error('Error creating template:', error);
-    return NextResponse.json({ success: false, error: 'Ошибка при создании шаблона' }, { status: 500 });
+    return NextResponse.json({ success: false, error: error.message || 'Ошибка при создании шаблона' }, { status: 400 });
   }
 }
+
