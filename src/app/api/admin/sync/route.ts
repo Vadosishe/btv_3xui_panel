@@ -49,7 +49,7 @@ export async function POST() {
       }
     }
 
-    // 2. Группируем статистику клиентов по уникальному email
+    // 2. Группируем настройки и статистику клиентов по уникальному email
     const clientStatsGrouped: Record<string, {
       email: string;
       uuid: string;
@@ -62,6 +62,43 @@ export async function POST() {
       group?: string;
     }> = {};
 
+    // 2.1. Сначала собираем клиентов из настроек инбаундов (settings.clients), чтобы учесть даже тех, у кого нет трафика
+    for (const inbound of inbounds) {
+      const inboundId = inbound.id;
+      let settings: any = {};
+      try {
+        settings = typeof inbound.settings === 'string'
+          ? JSON.parse(inbound.settings)
+          : inbound.settings || {};
+      } catch (e) {}
+
+      const clients = settings.clients || [];
+      for (const client of clients) {
+        if (!client.email) continue;
+        const emailKey = client.email.toLowerCase().trim();
+        const uuid = client.id || client.password || client.auth || '';
+
+        if (!clientStatsGrouped[emailKey]) {
+          clientStatsGrouped[emailKey] = {
+            email: client.email,
+            uuid: uuid,
+            up: 0,
+            down: 0,
+            expiryTime: client.expiryTime || 0,
+            total: client.totalGB || client.total || 0,
+            enable: client.enable !== false,
+            inboundIds: inboundId !== undefined ? [inboundId] : [],
+            group: client.group || '',
+          };
+        } else {
+          if (inboundId !== undefined && !clientStatsGrouped[emailKey].inboundIds.includes(inboundId)) {
+            clientStatsGrouped[emailKey].inboundIds.push(inboundId);
+          }
+        }
+      }
+    }
+
+    // 2.2. Накладываем данные из clientStats (трафик, статус активности)
     for (const inbound of inbounds) {
       const statsArray = inbound.clientStats || [];
       const inboundId = inbound.id;
@@ -79,7 +116,7 @@ export async function POST() {
             expiryTime: stat.expiryTime || 0,
             total: stat.total || 0,
             enable: stat.enable !== false,
-            inboundIds: [],
+            inboundIds: inboundId !== undefined ? [inboundId] : [],
             group: emailToGroupMap[emailKey] || '',
           };
         }
@@ -88,7 +125,7 @@ export async function POST() {
         group.up += Number(stat.up || 0);
         group.down += Number(stat.down || 0);
         
-        // Клиент активен, только если он активен во всех инбаундах
+        // Перезаписываем лимиты и статус если они есть в статистике
         group.enable = group.enable && (stat.enable !== false);
         
         if (stat.expiryTime > 0 && (group.expiryTime === 0 || stat.expiryTime < group.expiryTime)) {
@@ -266,10 +303,30 @@ export async function POST() {
       }
     }
 
+    // 4.5. Деактивируем клиентов в Postgres, которых нет на 3XUI
+    let deactivateCount = 0;
+    for (const dbClient of dbClients) {
+      const emailKey = dbClient.email.toLowerCase().trim();
+      if (!clientStatsGrouped[emailKey] && dbClient.isActive) {
+        try {
+          await prisma.client.update({
+            where: { id: dbClient.id },
+            data: { isActive: false }
+          });
+          deactivateCount++;
+        } catch (e) {
+          console.error(`Failed to deactivate missing client ${dbClient.email}:`, e);
+        }
+      }
+    }
+
     // 5. Логируем аудит синхронизации
     let logDetails = `Синхронизация трафика и конфигураций успешно завершена. Обновлено клиентов: ${syncCount}`;
     if (importCount > 0) {
       logDetails += `, импортировано новых: ${importCount}`;
+    }
+    if (deactivateCount > 0) {
+      logDetails += `, деактивировано (удалено с 3XUI): ${deactivateCount}`;
     }
     if (failedCount > 0) {
       logDetails += `, ошибок: ${failedCount}`;
@@ -288,8 +345,10 @@ export async function POST() {
       message: 'Синхронизация трафика и импорт клиентов успешно завершены',
       syncCount,
       importCount,
+      deactivateCount,
       failedCount,
     });
+
   } catch (error: any) {
     console.error('Error during traffic sync and client import:', error);
     return NextResponse.json({ 
