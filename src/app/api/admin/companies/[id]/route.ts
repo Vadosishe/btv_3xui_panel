@@ -66,6 +66,9 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       }
     }
 
+    const oldName = existing.name;
+    const nameChanged = name.trim().toLowerCase() !== oldName.toLowerCase();
+
     const updatedCompany = await prisma.company.update({
       where: { id },
       data: {
@@ -74,6 +77,16 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         isActive: isActive ?? existing.isActive,
       },
     });
+
+    // Переименовываем группу на сервере 3XUI
+    if (nameChanged) {
+      try {
+        const { xuiRenameGroup } = await import('@/lib/xui');
+        await xuiRenameGroup(oldName, updatedCompany.name);
+      } catch (e) {
+        console.warn('Failed to sync company rename as group on 3XUI:', e);
+      }
+    }
 
     // Логируем аудит
     await prisma.auditLog.create({
@@ -135,6 +148,14 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
     await prisma.company.delete({
       where: { id },
     });
+
+    // Удаляем группу на сервере 3XUI
+    try {
+      const { xuiDeleteGroup } = await import('@/lib/xui');
+      await xuiDeleteGroup(company.name);
+    } catch (e) {
+      console.warn('Failed to sync company deletion as group on 3XUI:', e);
+    }
 
     // Логируем аудит
     await prisma.auditLog.create({

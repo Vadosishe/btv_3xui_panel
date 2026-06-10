@@ -790,3 +790,43 @@ export async function xuiGetOnlineClients(): Promise<string[]> {
   }
   return [];
 }
+
+/**
+ * Создать группу в 3XUI
+ */
+export async function xuiCreateGroup(name: string): Promise<boolean> {
+  try {
+    const data = await xuiRequest('/panel/api/clients/groups/create', 'POST', { name });
+    return !!data.success;
+  } catch (e) {
+    console.error(`Failed to create group ${name} on 3XUI:`, e);
+    return false;
+  }
+}
+
+/**
+ * Переименовать группу в 3XUI
+ */
+export async function xuiRenameGroup(oldName: string, newName: string): Promise<boolean> {
+  try {
+    const data = await xuiRequest('/panel/api/clients/groups/rename', 'POST', { oldName, newName });
+    return !!data.success;
+  } catch (e) {
+    console.error(`Failed to rename group ${oldName} to ${newName} on 3XUI:`, e);
+    return false;
+  }
+}
+
+/**
+ * Удалить группу в 3XUI
+ */
+export async function xuiDeleteGroup(name: string): Promise<boolean> {
+  try {
+    const data = await xuiRequest('/panel/api/clients/groups/delete', 'POST', { name });
+    return !!data.success;
+  } catch (e) {
+    console.error(`Failed to delete group ${name} on 3XUI:`, e);
+    return false;
+  }
+}
+

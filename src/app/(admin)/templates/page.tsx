@@ -43,6 +43,7 @@ export default function TemplatesPage() {
   const [selectedAwgServerIds, setSelectedAwgServerIds] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [rebindingTemplateId, setRebindingTemplateId] = useState<string | null>(null);
 
   // Форма добавления/редактирования
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -184,6 +185,29 @@ export default function TemplatesPage() {
       setError('Ошибка сети. Проверьте соединение.');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleRebindTemplate = async (templateId: string, templateName: string) => {
+    if (!confirm(`Вы действительно хотите перепривязать всех активных клиентов шаблона "${templateName}" к его текущим инбаундам 3X-UI? Это удалит их из старых инбаундов и добавит в новые.`)) {
+      return;
+    }
+    setRebindingTemplateId(templateId);
+    try {
+      const res = await fetch(`/api/admin/templates/${templateId}/rebind`, {
+        method: 'POST'
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        alert(`✅ Успешно:\n${data.message}`);
+        loadData();
+      } else {
+        alert(`❌ Ошибка:\n${data.error || 'Произошел сбой при перепривязке клиентов.'}`);
+      }
+    } catch (e: any) {
+      alert(`❌ Ошибка сети: ${e.message}`);
+    } finally {
+      setRebindingTemplateId(null);
     }
   };
 
@@ -627,6 +651,25 @@ export default function TemplatesPage() {
                   </div>
 
                   <div className="card-actions">
+                    <button 
+                      className="action-icon" 
+                      onClick={() => handleRebindTemplate(tpl.id, tpl.name)} 
+                      disabled={rebindingTemplateId === tpl.id}
+                      title="Перепривязать клиентов к текущим инбаундам (нодам)"
+                      style={{
+                        color: '#a855f7',
+                        background: 'rgba(168, 85, 247, 0.08)',
+                        borderColor: 'rgba(168, 85, 247, 0.2)',
+                        opacity: rebindingTemplateId === tpl.id ? 0.5 : 1,
+                        cursor: rebindingTemplateId === tpl.id ? 'not-allowed' : 'pointer'
+                      }}
+                    >
+                      {rebindingTemplateId === tpl.id ? (
+                        <Loader size={14} className="spinner" />
+                      ) : (
+                        <Globe size={14} />
+                      )}
+                    </button>
                     <button className="action-icon" onClick={() => openEditModal(tpl)} title="Редактировать">
                       <Edit2 size={14} />
                     </button>

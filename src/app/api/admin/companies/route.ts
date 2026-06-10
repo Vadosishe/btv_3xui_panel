@@ -56,6 +56,14 @@ export async function POST(req: Request) {
       },
     });
 
+    // Создаем группу на сервере 3XUI
+    try {
+      const { xuiCreateGroup } = await import('@/lib/xui');
+      await xuiCreateGroup(company.name);
+    } catch (e) {
+      console.warn('Failed to sync company creation as group on 3XUI:', e);
+    }
+
     // Логируем аудит
     await prisma.auditLog.create({
       data: {

@@ -73,6 +73,10 @@ export default function SettingsPage() {
   const [tgStatusReport, setTgStatusReport] = useState<any>(null);
   const [tgStatusError, setTgStatusError] = useState<string | null>(null);
 
+  // Состояния для перепривязки и синхронизации групп
+  const [isSyncingGroups, setIsSyncingGroups] = useState(false);
+  const [isRebindingAll, setIsRebindingAll] = useState(false);
+
   // Получить статус бота из API
   const handleFetchTgStatus = async () => {
     setTgStatusLoading(true);
@@ -116,6 +120,54 @@ export default function SettingsPage() {
       setTgStatusError(`Ошибка соединения при восстановлении: ${err.message}`);
     } finally {
       setTgStatusRepairing(false);
+    }
+  };
+
+  const handleSyncGroups = async () => {
+    if (!confirm('Вы действительно хотите синхронизировать все компании из базы данных в 3X-UI как группы?')) {
+      return;
+    }
+    setIsSyncingGroups(true);
+    try {
+      const res = await fetch('/api/admin/settings/rebind-all', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'sync_groups' }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        alert(`✅ Успешно:\n${data.message}`);
+      } else {
+        alert(`❌ Ошибка:\n${data.error || 'Произошел сбой при синхронизации групп.'}`);
+      }
+    } catch (e: any) {
+      alert(`❌ Ошибка сети: ${e.message}`);
+    } finally {
+      setIsSyncingGroups(false);
+    }
+  };
+
+  const handleRebindAll = async () => {
+    if (!confirm('Внимание! Это действие удалит всех активных клиентов с серверов 3X-UI во всех инбаундах и пересоздаст их заново с лимитами и паролями из нашей базы данных. Это может на несколько секунд нарушить текущие соединения пользователей. Продолжить?')) {
+      return;
+    }
+    setIsRebindingAll(true);
+    try {
+      const res = await fetch('/api/admin/settings/rebind-all', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'rebind_all' }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        alert(`✅ Успешно:\n${data.message}`);
+      } else {
+        alert(`❌ Ошибка:\n${data.error || 'Произошел сбой при пересоздании клиентов.'}`);
+      }
+    } catch (e: any) {
+      alert(`❌ Ошибка сети: ${e.message}`);
+    } finally {
+      setIsRebindingAll(false);
     }
   };
 
@@ -781,6 +833,54 @@ export default function SettingsPage() {
               )}
               <span>{isTesting ? 'Проверка...' : 'Проверить связь'}</span>
             </button>
+          </div>
+
+          <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '20px', marginTop: '20px', display: 'flex', flexDirection: 'column', gap: '15px' }}>
+            <label className="form-label">Управление и обслуживание 3XUI</label>
+            <span className="help-text">
+              Используйте эти действия для перепривязки конфигураций или синхронизации групп с нуля.
+            </span>
+            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                className="btn-backup"
+                onClick={handleSyncGroups}
+                disabled={isSyncingGroups}
+                style={{ 
+                  fontSize: '12px', 
+                  padding: '8px 15px', 
+                  background: 'rgba(6, 182, 212, 0.05)',
+                  borderColor: 'rgba(6, 182, 212, 0.15)',
+                  color: '#06b6d4',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+              >
+                {isSyncingGroups ? <Loader size={14} className="spinner" /> : <Users size={14} />}
+                <span>Синхронизировать группы</span>
+              </button>
+
+              <button
+                type="button"
+                className="btn-backup"
+                onClick={handleRebindAll}
+                disabled={isRebindingAll}
+                style={{ 
+                  fontSize: '12px', 
+                  padding: '8px 15px', 
+                  background: 'rgba(168, 85, 247, 0.05)',
+                  borderColor: 'rgba(168, 85, 247, 0.15)',
+                  color: '#c084fc',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+              >
+                {isRebindingAll ? <Loader size={14} className="spinner" /> : <LinkIcon size={14} />}
+                <span>Перепривязать всех клиентов в 3XUI</span>
+              </button>
+            </div>
           </div>
         </div>
 
